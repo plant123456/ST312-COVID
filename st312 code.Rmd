@@ -1,0 +1,145 @@
+# Load library
+```{r}
+library(dplyr)
+library(tidyr)
+```
+
+# Load data
+```{r}
+df <- read.csv("covid-19_wave3_survey_cls.csv")
+df1 <- read.csv("covid-19_wave1_survey_cls.csv")
+df2 <- read.csv("covid-19_wave2_survey_cls.csv")
+
+head(df)
+head(df1)
+head(df2)
+
+# colSums(is.na(df))
+```
+```{r}
+colSums(is.na(df['CW3_GHQ']))
+colSums(is.na(df1['CW1_GHQ']))
+colSums(is.na(df2['CW2_GHQ']))
+```
+
+# Data cleaning
+```{r}
+# Removed high num NAS CW3_OUTDOORS_4, CW3_NUMROOMS, and CW3_BEENVAC
+# Removed CW3_COUNTRES and CW3_EMIGRANT - do those as data filtering 
+# smoking vaping and alcohol only applied to repeat respondents
+# econactivityb2 changed to econactivityd
+# Add respondent ID (NCDSID)
+
+cols = c("NCDSID", "BCSID", "NSID", "MCSID","CW3_PSEX", "CW3_WGHTKG", "CW3_GHQ", "CW3_BENEFITD_2", "CW3_ECONACTIVITYD", "CW3_GROA2", "CW3_SMOKING", "CW3_VAPE", "CW3_ALDRSP", "CW3_EXCISESP", "CW3_FRTVEGSP", "CW3_HHNUM", "CW3_RELSAT", "CW3_SCREENTIM_1", "CW3_SCREENTIM_2", "CW3_LONELY_4", "CW3_SATN", "CW3_MHNOW", "CW3_COVID19", "CW3_COVFUNC", "CW3_PMED", "CW3_WGHTSTP_4", "CW3_WGHTSTP_5")
+
+df_selected <- df %>% select(any_of(cols), contains("LIFEEVENTS"))
+df_selected <- df_selected %>%
+  mutate(ID = coalesce(NCDSID, BCSID, NSID, MCSID)) %>%
+  select(-NCDSID, -BCSID, -NSID, -MCSID)  # Remove original ID columns
+
+head(df_selected)
+
+cols1 = c("NCDSID", "BCSID", "NSID", "MCSID", "CW1_COVID19", "CW1_GHQ", "CW1_BENEFITD_2", "CW1_ECONACTIVITYD", "CW1_SMOKING",  "CW1_VAPE", "CW1_ALDRSP", "CW1_EXCISESP",  "CW1_FRTVEGSP",  "CW1_HHNUM",  "CW1_RELSAT", "CW1_LONELY_4", "CW1_SATN", "CW1_WGHTKG", "CW1_WGHTSTP_4", "CW1_WGHTSTP_5")
+
+df1_selected <- df1 %>% select(any_of(cols1))
+df1_selected <- df1_selected %>%
+  mutate(ID = coalesce(NCDSID, BCSID, NSID, MCSID)) %>%
+  select(-NCDSID, -BCSID, -NSID, -MCSID)  # Remove original ID columns
+
+cols2 = c("NCDSID", "BCSID", "NSID", "MCSID", "CW2_COVID19", "CW2_GHQ", "CW2_BENEFITD_2", "CW2_ECONACTIVITYD", "CW2_SMOKING", "CW2_VAPE", "CW2_ALDRSP", "CW2_EXCISESP", "CW2_FRTVEGSP", "CW2_HHNUM", "CW2_RELSAT", "CW2_LONELY_4", "CW2_SATN", "CW2_MHNOW", "CW2_PMED", "CW2_WGHTKG", "CW2_WGHTSTP_4", "CW2_WGHTSTP_5")
+
+df2_selected <- df2 %>% select(any_of(cols2))
+df2_selected <- df2_selected %>%
+  mutate(ID = coalesce(NCDSID, BCSID, NSID, MCSID)) %>%
+  select(-NCDSID, -BCSID, -NSID, -MCSID)  # Remove original ID columns
+
+```
+
+## Life events
+```{r}
+# 1 if encountered life event, 2 if not
+
+df_selected <- df_selected %>%
+  mutate(CW3_LIFEEVENTS = if_else(if_any(contains("LIFEEVENTS"), ~ . %in% c(1, 2)), 1, 2))
+df_selected <- df_selected %>% select(-contains("LIFEEVENTS1"), -contains("LIFEEVENTS2"))
+head(df_selected)
+```
+
+## Weight
+```{r}
+# convert stones and pounds to kg
+df_selected <- df_selected %>%
+  mutate(CW3_WGHT = round((CW3_WGHTSTP_4 * 6.35029) + (CW3_WGHTSTP_5 * 0.453592)))
+
+# combine column for weight in kg and weight in stoens and pounds
+df_selected <- df_selected %>%
+  mutate(CW3_FINAL_WGHT = coalesce(CW3_WGHT, CW3_WGHTKG))
+
+df_selected <- df_selected %>%
+  select(-c(CW3_WGHT, CW3_WGHTKG, CW3_WGHTSTP_4, CW3_WGHTSTP_5))
+```
+
+
+## Filtering out non-covid people 
+```{r}
+df_selected <- df_selected %>% filter(CW3_COVID19 %in% c(1, 2))
+df1_selected <- df1_selected %>% filter(CW1_COVID19 %in% c(1, 2))
+df2_selected <- df2_selected %>% filter(CW2_COVID19 %in% c(1, 2))
+```
+
+# Merge all dataframes
+```{r}
+# merged based on respondent ID
+df_temp <- merge(df_selected, df1_selected, by = "ID", all = TRUE)
+df_all  <- merge(df_temp, df2_selected, by = "ID", all = TRUE)
+head(df_all)
+```
+
+```{r}
+table(duplicated(df_selected$ID))  # Check for duplicates in df_selected
+table(duplicated(df1_selected$ID))
+
+unique(df_selected$NCDSID[duplicated(df_selected$ID)])
+```
+
+## Check missing values
+```{r}
+colSums(is.na(df_selected))
+colSums(is.na(df1_selected))
+```
+
+## Remove all missing values
+```{r}
+df_clean <- df_selected[complete.cases(df_selected), ]
+dim(df_clean)
+```
+
+## Count num of covfunc values
+```{r}
+## Count rows where CW3_COVFUNC is 0
+#num_zero_covfunc <- sum(df_clean$CW3_COVFUNC == , na.rm = TRUE)
+#print(paste("Number of rows where CW3_COVFUNC is 0:", num_zero_covfunc))
+
+df_clean$longcov <- ifelse(df_clean$CW3_COVFUNC %in% c(6, 7), 1, 0)
+```
+
+```{r}
+# Drop the CW3_COVFUNC variable
+df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVFUNC"]
+df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVID19"]
+
+# Run the logistic regression with all remaining predictors
+logit_model <- glm(longcov ~ ., data = df_clean, family = binomial)
+
+# Display the summary of the model
+summary(logit_model)
+```
+
+
+# Write as csv
+```{r}
+write.csv(df_selected, "wave3.csv", row.names = FALSE, na = "NA")
+```
+
+
+
