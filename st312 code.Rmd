@@ -23,14 +23,15 @@ colSums(is.na(df2['CW2_GHQ']))
 ```
 
 # Data cleaning
-```{r}
+```{r}                                                                                                                                                                 
 # Removed high num NAS CW3_OUTDOORS_4, CW3_NUMROOMS, and CW3_BEENVAC
+#Removed "CW3_GROA2",
 # Removed CW3_COUNTRES and CW3_EMIGRANT - do those as data filtering 
 # smoking vaping and alcohol only applied to repeat respondents
 # econactivityb2 changed to econactivityd
 # Add respondent ID (NCDSID)
 
-cols = c("NCDSID", "BCSID", "NSID", "MCSID","CW3_PSEX", "CW3_WGHTKG", "CW3_GHQ", "CW3_BENEFITD_2", "CW3_ECONACTIVITYD", "CW3_GROA2", "CW3_SMOKING", "CW3_VAPE", "CW3_ALDRSP", "CW3_EXCISESP", "CW3_FRTVEGSP", "CW3_HHNUM", "CW3_RELSAT", "CW3_SCREENTIM_1", "CW3_SCREENTIM_2", "CW3_LONELY_4", "CW3_SATN", "CW3_MHNOW", "CW3_COVID19", "CW3_COVFUNC", "CW3_PMED", "CW3_WGHTSTP_4", "CW3_WGHTSTP_5")
+cols = c("NCDSID", "BCSID", "NSID", "MCSID","CW3_PSEX", "CW3_WGHTKG", "CW3_GHQ", "CW3_BENEFITD_2", "CW3_ECONACTIVITYD", "CW3_SMOKING", "CW3_VAPE", "CW3_ALDRSP", "CW3_EXCISESP", "CW3_FRTVEGSP", "CW3_HHNUM", "CW3_RELSAT", "CW3_SCREENTIM_1", "CW3_SCREENTIM_2", "CW3_LONELY_4", "CW3_SATN", "CW3_MHNOW", "CW3_COVID19", "CW3_COVFUNC", "CW3_PMED", "CW3_WGHTSTP_4", "CW3_WGHTSTP_5")
 
 df_selected <- df %>% select(any_of(cols), contains("LIFEEVENTS"))
 df_selected <- df_selected %>%
@@ -53,6 +54,71 @@ df2_selected <- df2_selected %>%
   mutate(ID = coalesce(NCDSID, BCSID, NSID, MCSID)) %>%
   select(-NCDSID, -BCSID, -NSID, -MCSID)  # Remove original ID columns
 
+
+```
+##Data visualisation for covid vs non covid
+```{r}
+library(plotly)
+
+# Create a new column categorizing responses
+df_selected <- df_selected %>%
+  mutate(CW3_COVID19_Group = case_when(
+    CW3_COVID19 %in% c(1, 2) ~ "Yes",
+    TRUE ~ "No"
+  ))
+
+# Count occurrences of each group
+covid_count <- df_selected %>%
+  count(CW3_COVID19_Group)
+
+# Create interactive bar chart
+plot_ly(
+  covid_count,
+  x = ~CW3_COVID19_Group,
+  y = ~n,
+  type = "bar",
+  marker = list(color = c("gray", "black"))
+) %>%
+  layout(
+    title = "Number of those who contracted Covid",
+    xaxis = list(title = "COVID19"),
+    yaxis = list(title = "Number of participants"),
+    bargap = 0.2
+  )
+```
+##Data visualisation for long covid:
+```{r}
+# Create a new column categorizing responses
+df_selected <- df_selected %>% filter(CW3_COVID19 %in% c(1, 2))
+
+df_selected$longcov <- ifelse(df_selected$CW3_COVFUNC %in% c(6, 7), 1, 0)
+
+# Count occurrences of each group
+lcovid_count <- df_selected %>%
+  count(longcov)
+
+# Create interactive bar chart
+plot_ly(
+  lcovid_count,
+  x = ~longcov,
+  y = ~n,
+  type = "bar",
+  marker = list(color = c("gray", "black"))
+) %>%
+  layout(
+    title = "Number of those who contracted Long Covid out of all that contracted Covid",
+    xaxis = list(title = "Long Covid"),
+    yaxis = list(title = "Number of participants"),
+    bargap = 0.2
+  )
+```
+
+
+## Chose not to respond (-8 or -9 encoding)
+```{r}
+
+df_selected <- df_selected %>%
+  mutate(across(everything(), ~ ifelse(. %in% c(8, 9), NA, .)))
 ```
 
 ## Life events
@@ -79,12 +145,108 @@ df_selected <- df_selected %>%
   select(-c(CW3_WGHT, CW3_WGHTKG, CW3_WGHTSTP_4, CW3_WGHTSTP_5))
 ```
 
+##GHQ
+```{r}
+df_selected <- df_selected %>%
+  mutate(CW3_GHQ = case_when(
+    CW3_GHQ == 5  ~ 0,  # Poor -> 0
+    CW3_GHQ == 4  ~ 1,  # Fair -> 1
+    CW3_GHQ == 3  ~ 2,  # Good -> 2
+    CW3_GHQ == 2  ~ 3,  # Very Good -> 3
+    CW3_GHQ == 1  ~ 4,  # Excellent -> 4
+    TRUE ~ NA_real_  # Keep other values as NA
+  ))
+```
+
+##MHNOW
+```{r}
+df_selected <- df_selected %>%
+  mutate(CW3_MHNOW = case_when(
+    CW3_MHNOW == 5  ~ 0,  # Poor -> 0
+    CW3_MHNOW == 4  ~ 1,  # Fair -> 1
+    CW3_MHNOW == 3  ~ 2,  # Good -> 2
+    CW3_MHNOW == 2  ~ 3,  # Very Good -> 3
+    CW3_MHNOW == 1  ~ 4,  # Excellent -> 4
+    TRUE ~ NA_real_  # Keep other values as NA
+  ))
+```
+
+##ECONACTIVITYD
+```{r}
+library(fastDummies)
+
+# One-hot encode the CW3_ECONACTIVITYD column
+df_selected <- df_selected %>%
+  dummy_cols("CW3_ECONACTIVITYD", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+```
+
+##SMOKING
+```{r}
+# One-hot encode the CW3_ECONACTIVITYD column
+df_selected <- df_selected %>%
+  dummy_cols("CW3_SMOKING", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+```
+
+##VAPE
+```{r}
+# One-hot encode the CW3_ECONACTIVITYD column
+df_selected <- df_selected %>%
+  dummy_cols("CW3_VAPE", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+```
+
+##ALDRSP
+```{r}
+# One-hot encode the CW3_ECONACTIVITYD column
+df_selected <- df_selected %>%
+  dummy_cols("CW3_ALDRSP", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+```
+
+##LONELY_4
+```{r}
+# One-hot encode the CW3_ECONACTIVITYD column
+df_selected <- df_selected %>%
+  dummy_cols("CW3_LONELY_4", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+```
+
+##PMED
+```{r}
+df_selected <- df_selected %>%
+  mutate(CW3_PMED = case_when(
+    CW3_PMED == 1  ~ 1,  # Yes -> 1
+    CW3_PMED == 2  ~ 0,  # No -> 0
+    TRUE ~ NA_real_  # Convert -8, -9, and any other values to NA
+  ))
+```
+
+##BEENVAC
+```{r}
+df_selected <- df_selected %>%
+  mutate(CW3_BEENVAC = case_when(
+    CW3_BEENVAC == 1 ~ 1,  # 1 → 1 (Vaccinated)
+    CW3_BEENVAC %in% c(2, 3) ~ 0,  # 2 or 3 → 0 (Not vaccinated)
+    TRUE ~ NA_real_  # Convert other values (e.g., -8, -9) to NA
+  ))
+```
 
 ## Filtering out non-covid people 
 ```{r}
 df_selected <- df_selected %>% filter(CW3_COVID19 %in% c(1, 2))
 df1_selected <- df1_selected %>% filter(CW1_COVID19 %in% c(1, 2))
 df2_selected <- df2_selected %>% filter(CW2_COVID19 %in% c(1, 2))
+
+df_selected <- df_selected %>%
+  select(-CW3_COVID19)
+```
+
+#Check the number of rows in the filtered dataframes
+```{r}
+dim(df_selected)
+dim(df1_selected)
+dim(df2_selected)
+
+head(df_selected)
+head(df1_selected)
+head(df2_selected)
 ```
 
 # Merge all dataframes
@@ -94,6 +256,7 @@ df_temp <- merge(df_selected, df1_selected, by = "ID", all = TRUE)
 df_all  <- merge(df_temp, df2_selected, by = "ID", all = TRUE)
 head(df_all)
 ```
+
 
 ```{r}
 table(duplicated(df_selected$ID))  # Check for duplicates in df_selected
@@ -105,7 +268,9 @@ unique(df_selected$NCDSID[duplicated(df_selected$ID)])
 ## Check missing values
 ```{r}
 colSums(is.na(df_selected))
-colSums(is.na(df1_selected))
+#colSums(is.na(df1_selected))
+
+
 ```
 
 ## Remove all missing values
@@ -121,12 +286,20 @@ dim(df_clean)
 #print(paste("Number of rows where CW3_COVFUNC is 0:", num_zero_covfunc))
 
 df_clean$longcov <- ifelse(df_clean$CW3_COVFUNC %in% c(6, 7), 1, 0)
+
+```
+
+```{r}
+df_clean <- df_clean %>%
+  select(-ID)
+
+df_clean
 ```
 
 ```{r}
 # Drop the CW3_COVFUNC variable
-df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVFUNC"]
-df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVID19"]
+#df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVFUNC"]
+#df_clean <- df_clean[, !names(df_clean) %in% "CW3_COVID19"]
 
 # Run the logistic regression with all remaining predictors
 logit_model <- glm(longcov ~ ., data = df_clean, family = binomial)

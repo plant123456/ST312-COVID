@@ -1,0 +1,320 @@
+---
+title: "Data matching"
+output: html_document
+date: "2025-04-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+library(dplyr)
+library(tidyr)
+```
+
+# Load data
+```{r}
+wave3 <- read.csv("covid-19_wave3_survey_cls.csv")
+wave1 <- read.csv("covid-19_wave1_survey_cls.csv")
+wave2 <- read.csv("covid-19_wave2_survey_cls.csv")
+
+head(wave1)
+head(wave2)
+head(wave3)
+```
+
+#Filter for covid people
+```{r}
+wave3_cov <- wave3 %>% filter(CW3_COVID19 %in% c(1, 2))
+
+head(wave3_cov)
+```
+
+#Variables to keep 
+```{r}
+id_cols <- c("ID")
+
+
+w1_vars <- c(
+  id_cols,
+  "CW1_PNUM00", "CW1_CNUM00",
+  "CW1_PSEX", "CW1_COVID19", "CW1_COVID_HOSPAD", 
+  "CW1_COVIDSYMPT_1", "CW1_COVIDSYMPT_2", "CW1_COVIDSYMPT_3", 
+  "CW1_COVIDSYMPT_4", "CW1_COVIDSYMPT_5", "CW1_COVIDSYMPT_6", 
+  "CW1_COVIDSYMPT_7", "CW1_COVIDSYMPT_8", "CW1_COVIDSYMPT_18", 
+  "CW1_COVIDSYMPT_10", "CW1_COVIDSYMPT_11", "CW1_COVIDSYMPT_12", 
+  "CW1_COVIDSYMPT_16", "CW1_COVIDSYMPT_13", "CW1_COVIDSYMPT_14", 
+  "CW1_COVIDSYMPT_17", "CW1_COVIDSYMPT_19", "CW1_COVIDSYMPT_20", 
+  "CW1_COVIDSYMPT_23", "CW1_GHQ", "CW1_GHQPRECOVID", "CW1_LLI_17", 
+  "CW1_HHNUM", "CW1_RELSAT", "CW1_NUMROOMS", "CW1_OUTDOORS_4", 
+  "CW1_FINANCIALMANB", "CW1_FINANCIALMAND", "CW1_ECONACTIVITYB", 
+  "CW1_WRKHOURSB", "CW1_ECONACTIVITYD", "CW1_WRKHOURSD", 
+  "CW1_SMOKING", "CW1_NUMCIGSPP", "CW1_NUMCIGSSP", "CW1_VAPE", 
+  "CW1_VAPESP", "CW1_ALDRPP", "CW1_ALDRSP", "CW1_EXCISEPP", 
+  "CW1_EXCISESP", "CW1_FRTVEGPP", "CW1_FRTVEGSP", "CW1_HSLEEPPP", 
+  "CW1_HSLEEPSP", "CW1_Weight", "CW1_WGHTKG", "CW1_SATN"
+)
+
+w2_vars <- c(
+  id_cols,
+  "CW2_PNUM00", "CW2_CNUM00",
+  "CW2_PSEX", "CW2_W1OUTCOME", "CW2_OUTCOME", "CW2_COVID19", 
+  "CW2_COVID19POS", "CW2_COVID_HOSPAD", 
+  "CW2_COVIDSYMPT_1", "CW2_COVIDSYMPT_2", "CW2_COVIDSYMPT_3", 
+  "CW2_COVIDSYMPT_4", "CW2_COVIDSYMPT_5", "CW2_COVIDSYMPT_6", 
+  "CW2_COVIDSYMPT_7", "CW2_COVIDSYMPT_8", "CW2_COVIDSYMPT_18", 
+  "CW2_COVIDSYMPT_10", "CW2_COVIDSYMPT_11", "CW2_COVIDSYMPT_12", 
+  "CW2_COVIDSYMPT_16", "CW2_COVIDSYMPT_13", "CW2_COVIDSYMPT_14", 
+  "CW2_COVIDSYMPT_17", "CW2_COVIDSYMPT_19", "CW2_COVIDSYMPT_20", 
+  "CW2_COVIDSYMPT_23", "CW2_GHQ", "CW2_GHQPRECOVID", "CW2_LLI_17", 
+  "CW2_PMED", "CW2_HHNUM", "CW2_RELSAT", "CW2_NUMROOMS", 
+  "CW2_OUTDOORS_4", "CW2_FINANCIALMANB", "CW2_FINANCIALMAND", 
+  "CW2_ECONACTIVITYB", "CW2_WRKHOURSB", "CW2_ECONACTIVITYD", 
+  "CW2_WRKHOURSD", "CW2_SMOKING", "CW2_NUMCIGSPP", "CW2_NUMCIGSSP", 
+  "CW2_VAPE", "CW2_VAPESP", "CW2_ALDRPP", "CW2_ALDRSP", 
+  "CW2_EXCISEPP", "CW2_EXCISESP", "CW2_FRTVEGPP", "CW2_FRTVEGSP", 
+  "CW2_HSLEEPPP", "CW2_HSLEEPSP", "CW2_Weight", "CW2_WGHTKG", 
+  "CW2_SATN", "CW2_MHBEF", "CW2_MHNOW"
+)
+
+w3_vars <- c(
+  id_cols,
+  "CW3_PNUM00", "CW3_CNUM00",
+  "CW3_PSEX", "CW3_W1OUTCOME", "CW3_OUTCOME", "CW3_W2OUTCOME", 
+  "CW3_COVID19", "CW3_COVID19POS", "CW3_COVID_HOSPAD", 
+  "CW3_COVFUNC", "CW3_COVNEWILL", "CW3_COVNEWILT_1", "CW3_COVNEWILT_2", 
+  "CW3_COVNEWILT_3", "CW3_COVNEWILT_4", "CW3_COVNEWILT_5", 
+  "CW3_COVNEWILT_6", "CW3_COVNEWILT_7", "CW3_COVNEWILT_8", 
+  "CW3_TIREDGRID_1", "CW3_TIREDGRID_2", "CW3_TIREDGRID_3", 
+  "CW3_TIREDGRID_4", "CW3_TIREDGRID_5", "CW3_TIREDGRID_6", 
+  "CW3_FATGRID_1", "CW3_FATGRID_2", "CW3_FATGRID_3", "CW3_FATGRID_4", 
+  "CW3_FATGRID_5", "CW3_FATGRID_6", "CW3_FATGRID_7", "CW3_FATGRID_8", 
+  "CW3_FATGRID_9", "CW3_FATGRID_10", "CW3_MEMORY", "CW3_SKIN", 
+  "CW3_SHORTB", "CW3_PALP", "CW3_ACTIVITY", 
+  "CW3_COVIDSYMPT_1", "CW3_COVIDSYMPT_2", "CW3_COVIDSYMPT_3", 
+  "CW3_COVIDSYMPT_4", "CW3_COVIDSYMPT_5", "CW3_COVIDSYMPT_6", 
+  "CW3_COVIDSYMPT_7", "CW3_COVIDSYMPT_8", "CW3_COVIDSYMPT_18", 
+  "CW3_COVIDSYMPT_10", "CW3_COVIDSYMPT_11", "CW3_COVIDSYMPT_12", 
+  "CW3_COVIDSYMPT_16", "CW3_COVIDSYMPT_13", "CW3_COVIDSYMPT_14", 
+  "CW3_COVIDSYMPT_17", "CW3_COVIDSYMPT_19", "CW3_COVIDSYMPT_20", 
+  "CW3_COVIDSYMPT_23", "CW3_BEENVAC", "CW3_GHQ", "CW3_GHQPRECOVID", 
+  "CW3_LLI_17", "CW3_PMED", "CW3_HHNUM", "CW3_RELSAT", "CW3_NUMROOMS", 
+  "CW3_OUTDOORS_4", "CW3_FINANCIALMANB", "CW3_FINANCIALMAND", 
+  "CW3_ECONACTIVITYB2", "CW3_WRKHOURSB", "CW3_GROWB2", 
+  "CW3_ECONACTIVITYD", "CW3_WRKHOURSD", "CW3_SMOKING", "CW3_NUMCIGSSP", 
+  "CW3_VAPE", "CW3_VAPESP", "CW3_ALDRSP", "CW3_EXCISESP", 
+  "CW3_FRTVEGSP", "CW3_HSLEEPSP", "CW3_Weight", "CW3_WGHTKG", 
+  "CW3_SATN", "CW3_MHBEF", "CW3_MHNOW"
+)
+```
+
+##RUN BOTH OF THE DATA VISUALISATION SECTIONS AD A NEW LONGCOV VARIABLE IS MADE HERE 
+#Filtering all three datasets to only keep the selected columns 
+```{r}
+
+# Filter Wave 1
+wave1_filtered <- wave1 %>%
+  select(any_of(w1_vars))  # any_of() ensures no error if a variable is missing
+
+# Filter Wave 2
+wave2_filtered <- wave2 %>%
+  select(any_of(w2_vars))
+
+# Filter Wave 3
+wave3_filtered <- wave3_cov %>%
+  select(any_of(w3_vars))
+```
+
+#Seeing how many participants in wave 3 participated in previous waves 
+```{r}
+library(ggplot2)
+
+# Create mutually exclusive participation groups
+wave3_filtered_plot <- wave3_filtered %>%
+  mutate(
+    participation = case_when(
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME == 1 ~ "Both Waves 1 & 2",
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME != 1 ~ "Only Wave 1",
+      CW3_W1OUTCOME != 1 & CW3_W2OUTCOME == 1 ~ "Only Wave 2",
+      TRUE ~ "Only Wave 3"  # Default (neither W1 nor W2)
+    )
+  )
+
+# Summarize counts
+participation_summary <- wave3_filtered_plot %>%
+  count(participation)
+
+# Plot
+ggplot(participation_summary, aes(x = participation, y = n, fill = participation)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), vjust = -0.5, size = 4) +
+  labs(
+    title = "Participation in Previous Waves (All Wave 3 Respondents)",
+    x = "Participation Group",
+    y = "Number of Respondents"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+#Creating subset dataframe with only long covid people 
+```{r}
+wave3_lc <- wave3_filtered %>%
+  mutate(
+    longcov = ifelse(CW3_COVFUNC %in% c(6, 7), 1, 0)
+  )
+
+
+
+wave3_longcovid <- wave3_lc %>%
+  filter(longcov == 1) %>%
+  mutate(
+    participation = case_when(
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME == 1 ~ "Both Waves 1 & 2",
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME != 1 ~ "Only Wave 1",
+      CW3_W1OUTCOME != 1 & CW3_W2OUTCOME == 1 ~ "Only Wave 2",
+      TRUE ~ "Only Wave 3"
+    )
+  )
+
+# Summarize counts for Long COVID group
+participation_summary_long <- wave3_longcovid %>%
+  count(participation)
+
+# Plot
+ggplot(participation_summary_long, aes(x = participation, y = n, fill = participation)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), vjust = -0.5, size = 4) +
+  labs(
+    title = "Participation in Previous Waves (Long COVID Cases in Wave 3)",
+    x = "Participation Group",
+    y = "Number of Respondents"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+#Replacing previous COVFUNC COVID19 variables
+```{r}
+wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVFUNC"]
+wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVID19"]
+```
+
+#FOR MS IDs creating unqiue IDs for every family member
+```{r}
+
+wave1_clean <- wave1_filtered
+wave2_clean <- wave2_filtered
+wave3_clean <- wave3_lc_clean
+
+head(wave1_clean)
+head(wave2_clean)
+head(wave3_clean)
+```
+
+#For MS IDs also making unique IDs for family members using CNUM 
+```{r}
+make_unique_ids <- function(data) {
+  # Find columns (case-insensitive)
+  id_col <- grep("^ID$", names(data), value = TRUE, ignore.case = TRUE)[1]
+  pnum_col <- grep("PNUM", names(data), value = TRUE, ignore.case = TRUE)[1]
+  cnum_col <- grep("CNUM", names(data), value = TRUE, ignore.case = TRUE)[1]
+  
+  # Known duplicate IDs (add more as needed)
+  duplicate_ids <- c("M20385Y", "M29249D", "M29318Z", "M33080B")
+  
+  if (!is.na(id_col)) {
+    data <- data %>%
+      mutate(
+        # First pass: Add PNUM if exists and > 0
+        !!id_col := if (!is.na(pnum_col)) {
+          ifelse(!is.na(.data[[pnum_col]]) & .data[[pnum_col]] > 0,
+                 paste0(.data[[id_col]], "_P", .data[[pnum_col]]),
+                 .data[[id_col]])
+        } else .data[[id_col]],
+        
+        # Second pass: Force CNUM for known duplicates
+        !!id_col := if (!is.na(cnum_col)) {
+          case_when(
+            # Case 1: Known duplicates get CNUM appended unconditionally
+            .data[[id_col]] %in% duplicate_ids ~ 
+              paste0(.data[[id_col]], "_C", .data[[cnum_col]]),
+            
+            # Case 2: Regular duplicates get CNUM only if PNUM was NA/0
+            duplicated(.data[[id_col]]) | duplicated(.data[[id_col]], fromLast = TRUE) ~
+              ifelse(is.na(.data[[pnum_col]]) | .data[[pnum_col]] == 0,
+                     paste0(.data[[id_col]], "_C", .data[[cnum_col]]),
+                     .data[[id_col]]),
+            
+            # Default: Keep existing ID
+            TRUE ~ .data[[id_col]]
+          )
+        } else .data[[id_col]]
+      )
+  }
+  return(data)
+}
+
+wave1_unq <- make_unique_ids(wave1_clean)
+wave2_unq <- make_unique_ids(wave2_clean)
+wave3_unq <- make_unique_ids(wave3_clean)
+
+# Check for duplicates
+cat("Wave 1 duplicates:", sum(duplicated(wave1_unq$ID)), "\n")
+cat("Wave 2 duplicates:", sum(duplicated(wave2_unq$ID)), "\n")
+cat("Wave 3 duplicates:", sum(duplicated(wave3_unq$ID)), "\n")
+
+# Example output:
+# ID = "MCS123" (if PNUM = 0)
+# ID = "MCS123_1" (if PNUM = 1)
+
+```
+
+#Checking for duplicate IDs
+```{r}
+wave1_unq %>% 
+  count(ID) %>% 
+  filter(n > 1)
+
+# Check Wave 2 for duplicate IDs
+wave2_unq %>% 
+  count(ID) %>% 
+  filter(n > 1)
+
+# Check Wave 3 for duplicate IDs (should be none if it's your primary dataset)
+wave3_unq %>% 
+  count(ID) %>% 
+  filter(n > 1)
+```
+
+
+#Merging columns from waves 1 and 2 for participants who answered the wave 3 survey 
+```{r}
+# Left-join Wave 1 and Wave 2 data to Wave 3
+merged_data <- wave3_unq %>%
+  left_join(wave1_unq, by = "ID", suffix = c("", "_W1")) %>%
+  left_join(wave2_unq, by = "ID", suffix = c("", "_W2"))
+
+# Optional: Rename Wave 1/Wave 2 columns for clarity
+merged_data <- merged_data %>%
+  rename_with(~ paste0(., "_W1"), .cols = setdiff(names(wave1_filtered), "ID")) %>%
+  rename_with(~ paste0(., "_W2"), .cols = setdiff(names(wave2_filtered), "ID"))
+
+# Check participation overlap
+table(
+  "Wave 1" = !is.na(merged_data$CW1_PSEX_W1),
+  "Wave 2" = !is.na(merged_data$CW2_PSEX_W2),
+  useNA = "always"
+)
+```
+
+#Exporting the merged dataset 
+```{r}
+library(openxlsx)  # Install with install.packages("openxlsx") if needed
+
+# 1. Save wave1_clean
+write.xlsx(merged_data, file = "merged_wave_data.xlsx")
+```
+
