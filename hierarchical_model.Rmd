@@ -1,0 +1,173 @@
+---
+title: "Hierarchical Model"
+---
+
+# Load library
+```{r}
+library(openxlsx)
+library(stats)
+library(cluster)
+library(dplyr)
+```
+
+# Load data
+```{r}
+df <- read.xlsx("merged_wave_data2.xlsx")
+
+head(df)
+```
+
+# Long covid symptoms cluster
+
+## Filter data
+```{r}
+filtered_df <- subset(df, CW3_COVNEWILL == 1)
+
+dim(filtered_df)
+```
+
+## Prepare data for modeling
+```{r}
+covid_symptoms <- filtered_df[, intersect(c("CW3_COVNEWILT_1", "CW3_COVNEWILT_2", 
+                                   "CW3_COVNEWILT_3", "CW3_COVNEWILT_4", 
+                                   "CW3_COVNEWILT_5", "CW3_COVNEWILT_6", 
+                                   "CW3_COVNEWILT_7", "CW3_COVNEWILT_8"), colnames(filtered_df))]
+
+scaled_covid_symptoms <- scale(covid_symptoms)
+
+dist_matrix <- dist(scaled_covid_symptoms, method = "euclidean")
+```
+
+## Hierarchical model
+```{r}
+hc <- hclust(dist_matrix, method = "complete")
+summary(hc)
+```
+
+```{r}
+plot(hc, main = "Dendrogram of COVID Data", xlab = "Observation", ylab = "Height", hang = -1, cex = 0.5, labels = FALSE)
+```
+
+## Calculate silhouette score
+```{r}
+# Initialize a vector to store silhouette widths
+sil_width <- numeric(10)  
+
+for (k in 2:10) {
+  clusters <- cutree(hc, k = k)
+  sil_score <- silhouette(clusters, dist_matrix)
+  sil_width[k] <- mean(sil_score[, 3])
+}
+
+# Plot silhouette width for each k
+plot(2:10, sil_width[2:10], type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width")
+
+```
+
+## 2 clusters
+```{r}
+clusters <- cutree(hc, k = 2)
+
+silhouette_score <- silhouette(clusters, dist_matrix)
+summary(silhouette_score)
+```
+
+## 3 clusters
+```{r}
+clusters <- cutree(hc, k = 3) 
+table(clusters)  
+
+plot(hc, main = "Dendrogram of COVID Data", hang = -1, cex = 0.5, labels = FALSE)
+rect.hclust(hc, k = 3, border = "red")
+```
+
+# Covid symptoms cluster
+
+## Prepare data for modeling
+```{r}
+covid_symptoms <- df[, intersect(c("CW3_COVIDSYMPT_1", "CW3_COVIDSYMPT_2", "CW3_COVIDSYMPT_3", 
+  "CW3_COVIDSYMPT_4", "CW3_COVIDSYMPT_5", "CW3_COVIDSYMPT_6", 
+  "CW3_COVIDSYMPT_7", "CW3_COVIDSYMPT_8", "CW3_COVIDSYMPT_18", 
+  "CW3_COVIDSYMPT_10", "CW3_COVIDSYMPT_11", "CW3_COVIDSYMPT_12", 
+  "CW3_COVIDSYMPT_16", "CW3_COVIDSYMPT_13", "CW3_COVIDSYMPT_14", 
+  "CW3_COVIDSYMPT_17", "CW3_COVIDSYMPT_19", "CW3_COVIDSYMPT_20", 
+  "CW3_COVIDSYMPT_23"), colnames(df))]
+
+# Remove columns with any NA values
+covid_symptoms_clean <- na.omit(covid_symptoms)
+
+scaled_covid_symptoms <- scale(covid_symptoms_clean)
+
+dist_matrix <- dist(scaled_covid_symptoms, method = "euclidean")
+```
+
+## Hierarchical model
+```{r}
+hc_covid <- hclust(dist_matrix, method = "complete")
+summary(hc_covid)
+```
+
+```{r}
+plot(hc_covid, main = "Dendrogram of COVID Data", xlab = "Observation", ylab = "Height", hang = -1, cex = 0.5, labels = FALSE)
+```
+## Calculate silhouette score
+```{r}
+# Initialize a vector to store silhouette widths
+sil_width <- numeric(10)  
+
+for (k in 2:10) {
+  clusters <- cutree(hc_covid, k = k)
+  sil_score <- silhouette(clusters, dist_matrix)
+  sil_width[k] <- mean(sil_score[, 3])
+}
+
+# Plot silhouette width for each k
+plot(2:10, sil_width[2:10], type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width")
+
+```
+
+## 2 clusters
+```{r}
+clusters <- cutree(hc_covid, k = 2)
+
+silhouette_score <- silhouette(clusters, dist_matrix)
+summary(silhouette_score)
+```
+## 3 clusters
+```{r}
+clusters <- cutree(hc_covid, k = 3)
+
+silhouette_score <- silhouette(clusters, dist_matrix)
+summary(silhouette_score)
+```
+
+```{r}
+covid_symptoms_clean$cluster <- as.factor(clusters)
+```
+
+```{r}
+summary_df <- covid_symptoms_clean %>%
+  group_by(cluster) %>%
+  summarise(across(everything(), list(mean = ~mean(.), median = ~median(.)), .names = "{col}_{fn}"))
+
+print(summary_df)
+```
+
+## Frequency
+```{r}
+# Calculate the frequency of each symptom in each cluster
+frequency_df <- covid_symptoms_clean %>%
+  group_by(cluster) %>%
+  summarise(across(everything(), ~sum(!is.na(.)), .names = "{col}_freq"))
+
+print(frequency_df)
+```
+
+## Bar chart
+```{r}
+ggplot(df, aes(x = cluster, fill = as.factor(cough))) +
+  geom_bar(position = "fill") +
+  labs(title = "Cough Frequency by Cluster", x = "Cluster", y = "Proportion")
+```
+
+
