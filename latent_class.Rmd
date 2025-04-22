@@ -1,0 +1,191 @@
+---
+title: "Latent Class Analysis"
+---
+
+# Load library
+```{r}
+library(poLCA)
+library(dplyr)
+library(openxlsx)
+```
+
+# Load data
+```{r}
+df <- read.xlsx("merged_wave_data2.xlsx")
+
+head(df)
+```
+
+# Analysis of individuals with long covid 
+
+## Filter data
+```{r}
+filtered_df <- subset(df, CW3_COVNEWILL == 1)
+
+dim(filtered_df)
+```
+## Select variables
+```{r}
+selected_df <- filtered_df[, intersect(c(
+  "CW3_PSEX", "CW3_COVID19", "CW3_COVID_HOSPAD", "CW3_COVNEWILL", "CW3_TIREDGRID_1", "CW3_TIREDGRID_2", "CW3_TIREDGRID_3", 
+  "CW3_TIREDGRID_4", "CW3_TIREDGRID_5", "CW3_TIREDGRID_6", 
+  "CW3_FATGRID_1", "CW3_FATGRID_2", "CW3_FATGRID_3", "CW3_FATGRID_4", 
+  "CW3_FATGRID_5", "CW3_FATGRID_6", "CW3_FATGRID_7", "CW3_FATGRID_8", 
+  "CW3_FATGRID_9", "CW3_FATGRID_10", "CW3_MEMORY", "CW3_COVIDSYMPT_1", "CW3_COVIDSYMPT_2", "CW3_COVIDSYMPT_3", 
+  "CW3_COVIDSYMPT_4", "CW3_COVIDSYMPT_5", "CW3_COVIDSYMPT_6", 
+  "CW3_COVIDSYMPT_7", "CW3_COVIDSYMPT_8", "CW3_COVIDSYMPT_18", 
+  "CW3_COVIDSYMPT_10", "CW3_COVIDSYMPT_11", "CW3_COVIDSYMPT_12", 
+  "CW3_COVIDSYMPT_16", "CW3_COVIDSYMPT_13", "CW3_COVIDSYMPT_14", 
+  "CW3_COVIDSYMPT_17", "CW3_COVIDSYMPT_19", "CW3_COVIDSYMPT_20", 
+  "CW3_COVIDSYMPT_23", "CW3_GHQ", "CW3_LLI_17", "CW3_PMED"), colnames(filtered_df))]
+
+head(selected_df)
+dim(selected_df)
+```
+## Check number of null values
+```{r}
+na_counts <- sapply(selected_df, function(x) sum(is.na(x)))
+print(na_counts)
+```
+
+## Check column values
+```{r}
+# Check the unique values in each column
+unique_values <- sapply(selected_df, unique)
+print(unique_values)
+```
+
+## Convert to factors
+```{r}
+# For sex
+selected_df$CW3_PSEX <- factor(selected_df$CW3_PSEX, levels = c(1, 2), labels = c("Male", "Female"))
+
+# For memory
+selected_df$CW3_GHQ <- factor(selected_df$CW3_GHQ, levels = c(1, 2, 3, 4), labels = c("Better", "Usual", "Worse", "Much Worse")
+
+# For GHQ (General Health Questionnaire)
+selected_df$CW3_GHQ <- factor(selected_df$CW3_GHQ, levels = c(1, 2, 3, 4, 5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
+
+# Function to convert all 1/2 columns into "Yes"/"No"
+convert_to_yes_no <- function(df) {
+  for (col in colnames(df)) {
+    # If the column contains only 1, 2, and NA, convert it to "Yes"/"No"
+    if (all(df[[col]] %in% c(1, 2, NA))) {
+      df[[col]] <- factor(df[[col]], levels = c(1, 2), labels = c("Yes", "No"))
+    }
+  }
+  return(df)
+}
+
+selected_df <- convert_to_yes_no(selected_df)
+
+# Function to convert 1, 2, 3, 4, and NA into the combined categories
+convert_to_combined_categories <- function(df) {
+  # Loop through all columns and apply the conversion logic
+  for (col in colnames(df)) {
+    # Check if the column contains values 1, 2, 3, 4 (and potentially NA)
+    if (all(df[[col]] %in% c(1, 2, 3, 4, NA))) {
+      # Apply the conversion logic for values 1 to 4
+      df[[col]] <- factor(df[[col]], 
+                          levels = c(1, 2, 3, 4), 
+                          labels = c("Rarely", "Sometimes", "Often", "Almost Always"), 
+                          exclude = NA)
+      
+      # Ensure NA values remain as NA
+      df[[col]][is.na(df[[col]])] <- NA
+    }
+  }
+  return(df)
+}
+
+selected_df <- convert_to_combined_categories(selected_df)
+
+head(selected_df)
+```
+
+# LCA model
+```{r}
+lca_model <- poLCA(cbind(CW3_PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+                         CW3_TIREDGRID_1, CW3_TIREDGRID_2, CW3_TIREDGRID_3, 
+                         CW3_TIREDGRID_4, CW3_TIREDGRID_5, CW3_TIREDGRID_6, 
+                         CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3,
+                         CW3_FATGRID_4, CW3_FATGRID_5, CW3_FATGRID_6,   CW3_FATGRID_7, CW3_FATGRID_8, 
+                         CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY,  
+                         CW3_COVIDSYMPT_1, CW3_COVIDSYMPT_2, CW3_COVIDSYMPT_3, 
+                         CW3_COVIDSYMPT_4, CW3_COVIDSYMPT_5, CW3_COVIDSYMPT_6, 
+                         CW3_COVIDSYMPT_7, CW3_COVIDSYMPT_8, CW3_COVIDSYMPT_18, 
+                         CW3_COVIDSYMPT_10, CW3_COVIDSYMPT_11, CW3_COVIDSYMPT_12, 
+                         CW3_COVIDSYMPT_16, CW3_COVIDSYMPT_13, CW3_COVIDSYMPT_14, 
+                         CW3_COVIDSYMPT_17, CW3_COVIDSYMPT_19,                          CW3_COVIDSYMPT_23, CW3_GHQ, CW3_LLI_17, CW3_PMED) ~ 1, 
+                   data = selected_df, nclass = 3)
+
+summary(lca_model)
+```
+
+## Compare AIC and BIC values fo different number of classes
+```{r}
+model_1_class <- poLCA(cbind(CW3_PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+                         CW3_TIREDGRID_1, CW3_TIREDGRID_2, CW3_TIREDGRID_3, 
+                         CW3_TIREDGRID_4, CW3_TIREDGRID_5, CW3_TIREDGRID_6, 
+                         CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3,
+                         CW3_FATGRID_4, CW3_FATGRID_5, CW3_FATGRID_6,   CW3_FATGRID_7, CW3_FATGRID_8, 
+                         CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY,  
+                         CW3_COVIDSYMPT_1, CW3_COVIDSYMPT_2, CW3_COVIDSYMPT_3, 
+                         CW3_COVIDSYMPT_4, CW3_COVIDSYMPT_5, CW3_COVIDSYMPT_6, 
+                         CW3_COVIDSYMPT_7, CW3_COVIDSYMPT_8, CW3_COVIDSYMPT_18, 
+                         CW3_COVIDSYMPT_10, CW3_COVIDSYMPT_11, CW3_COVIDSYMPT_12, 
+                         CW3_COVIDSYMPT_16, CW3_COVIDSYMPT_13, CW3_COVIDSYMPT_14, 
+                         CW3_COVIDSYMPT_17, CW3_COVIDSYMPT_19,                          CW3_COVIDSYMPT_23, CW3_GHQ, CW3_LLI_17, CW3_PMED) ~ 1, data = selected_df, nclass = 1)
+
+model_2_classes <- poLCA(cbind(CW3_PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+                         CW3_TIREDGRID_1, CW3_TIREDGRID_2, CW3_TIREDGRID_3, 
+                         CW3_TIREDGRID_4, CW3_TIREDGRID_5, CW3_TIREDGRID_6, 
+                         CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3,
+                         CW3_FATGRID_4, CW3_FATGRID_5, CW3_FATGRID_6,   CW3_FATGRID_7, CW3_FATGRID_8, 
+                         CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY,  
+                         CW3_COVIDSYMPT_1, CW3_COVIDSYMPT_2, CW3_COVIDSYMPT_3, 
+                         CW3_COVIDSYMPT_4, CW3_COVIDSYMPT_5, CW3_COVIDSYMPT_6, 
+                         CW3_COVIDSYMPT_7, CW3_COVIDSYMPT_8, CW3_COVIDSYMPT_18, 
+                         CW3_COVIDSYMPT_10, CW3_COVIDSYMPT_11, CW3_COVIDSYMPT_12, 
+                         CW3_COVIDSYMPT_16, CW3_COVIDSYMPT_13, CW3_COVIDSYMPT_14, 
+                         CW3_COVIDSYMPT_17, CW3_COVIDSYMPT_19,                          CW3_COVIDSYMPT_23, CW3_GHQ, CW3_LLI_17, CW3_PMED) ~ 1, data = selected_df, nclass = 2)
+
+model_3_classes <- poLCA(cbind(CW3_PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+                         CW3_TIREDGRID_1, CW3_TIREDGRID_2, CW3_TIREDGRID_3, 
+                         CW3_TIREDGRID_4, CW3_TIREDGRID_5, CW3_TIREDGRID_6, 
+                         CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3,
+                         CW3_FATGRID_4, CW3_FATGRID_5, CW3_FATGRID_6,   CW3_FATGRID_7, CW3_FATGRID_8, 
+                         CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY,  
+                         CW3_COVIDSYMPT_1, CW3_COVIDSYMPT_2, CW3_COVIDSYMPT_3, 
+                         CW3_COVIDSYMPT_4, CW3_COVIDSYMPT_5, CW3_COVIDSYMPT_6, 
+                         CW3_COVIDSYMPT_7, CW3_COVIDSYMPT_8, CW3_COVIDSYMPT_18, 
+                         CW3_COVIDSYMPT_10, CW3_COVIDSYMPT_11, CW3_COVIDSYMPT_12, 
+                         CW3_COVIDSYMPT_16, CW3_COVIDSYMPT_13, CW3_COVIDSYMPT_14, 
+                         CW3_COVIDSYMPT_17, CW3_COVIDSYMPT_19,                          CW3_COVIDSYMPT_23, CW3_GHQ, CW3_LLI_17, CW3_PMED) ~ 1, data = selected_df, nclass = 3)
+
+# Compare AIC and BIC values
+aic_values <- c(model_1_class$aic, model_2_classes$aic, model_3_classes$aic)
+bic_values <- c(model_1_class$bic, model_2_classes$bic, model_3_classes$bic)
+
+# Print the AIC and BIC values
+data.frame(N_Classes = 1:3, AIC = aic_values, BIC = bic_values)
+
+```
+Lowest BIC value for 2 classes and lowest AIC value for 3 classes. 
+
+## Visualize class proportions
+```{r}
+class_proportions <- lca_model$P
+pie(class_proportions, labels = paste("Class", 1:length(class_proportions), ":", round(class_proportions * 100, 1), "%"),
+    main = "Latent Class Proportions")
+
+```
+
+Based on the result from fitting 3 latent classes on people diagonised with long covid, all three classes have more female than male, and the majority of individuals in all three classes did not go to the hospital because of coronavirus. Class 1 has the highest proportion of individuals diagnosed with COVID-19, followed by Class 2, where approximately half of the individuals were diagnosed, and Class 3, with the fewest diagnosed cases. 
+
+Class 1 individuals are more likely to report feeling tired at the time of the survey, while Class 2 individuals experience occasional tiredness, and Class 3 individuals are less likely to report fatigue. Similarly, Class 1 respondents exhibit the worst memory compared to the other two classes.
+
+In terms of specific covid symptoms, Class 1 individuals experience more frequent cough, sore throat, chest tightness, shortness of breath, body aches, fatigue, and headaches. Class 2 individuals report more shortness of breath, body aches, fatigue, and headaches. In contrast, Class 3 individuals report fewer symptoms overall.
+
+Overall, Class 1 individuals are characterized by experiencing multiple symptoms, Class 2 by mild symptoms, and Class 3 by generally less severe symptoms. The class proportion indicates that most of the respondents are characterized with mild symptoms, followed by Class 1 respondents and Class 3 respondents.
+
