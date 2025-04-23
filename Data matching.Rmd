@@ -39,7 +39,7 @@ id_cols <- c("ID")
 
 w1_vars <- c(
   id_cols,
-  "CW1_PNUM00", "CW1_CNUM00",
+  "CW1_PNUM00", "CW1_CNUM00", 
   "CW1_PSEX", "CW1_COVID19", "CW1_COVID_HOSPAD", 
   "CW1_COVIDSYMPT_1", "CW1_COVIDSYMPT_2", "CW1_COVIDSYMPT_3", 
   "CW1_COVIDSYMPT_4", "CW1_COVIDSYMPT_5", "CW1_COVIDSYMPT_6", 
@@ -54,7 +54,7 @@ w1_vars <- c(
   "CW1_SMOKING", "CW1_NUMCIGSPP", "CW1_NUMCIGSSP", "CW1_VAPE", 
   "CW1_VAPESP", "CW1_ALDRPP", "CW1_ALDRSP", "CW1_EXCISEPP", 
   "CW1_EXCISESP", "CW1_FRTVEGPP", "CW1_FRTVEGSP", "CW1_HSLEEPPP", 
-  "CW1_HSLEEPSP", "CW1_Weight", "CW1_WGHTKG", "CW1_SATN"
+  "CW1_HSLEEPSP", "CW1_Weight", "CW1_WGHTKG", "CW1_SATN", "CW1_WGHTSTP_4", "CW1_WGHTSTP_5"
 )
 
 w2_vars <- c(
@@ -76,12 +76,12 @@ w2_vars <- c(
   "CW2_VAPE", "CW2_VAPESP", "CW2_ALDRPP", "CW2_ALDRSP", 
   "CW2_EXCISEPP", "CW2_EXCISESP", "CW2_FRTVEGPP", "CW2_FRTVEGSP", 
   "CW2_HSLEEPPP", "CW2_HSLEEPSP", "CW2_Weight", "CW2_WGHTKG", 
-  "CW2_SATN", "CW2_MHBEF", "CW2_MHNOW"
+  "CW2_SATN", "CW2_MHNOW", "CW2_WGHTSTP_4", "CW2_WGHTSTP_5"
 )
 
 w3_vars <- c(
   id_cols,
-  "CW3_PNUM00", "CW3_CNUM00",
+  "CW3_PNUM00", "CW3_CNUM00", "CW3_COHORT",
   "CW3_PSEX", "CW3_W1OUTCOME", "CW3_OUTCOME", "CW3_W2OUTCOME", 
   "CW3_COVID19", "CW3_COVID19POS", "CW3_COVID_HOSPAD", 
   "CW3_COVFUNC", "CW3_COVNEWILL", "CW3_COVNEWILT_1", "CW3_COVNEWILT_2", 
@@ -105,8 +105,8 @@ w3_vars <- c(
   "CW3_ECONACTIVITYB2", "CW3_WRKHOURSB", "CW3_GROWB2", 
   "CW3_ECONACTIVITYD", "CW3_WRKHOURSD", "CW3_SMOKING", "CW3_NUMCIGSSP", 
   "CW3_VAPE", "CW3_VAPESP", "CW3_ALDRSP", "CW3_EXCISESP", 
-  "CW3_FRTVEGSP", "CW3_HSLEEPSP", "CW3_Weight", "CW3_WGHTKG", 
-  "CW3_SATN", "CW3_MHBEF", "CW3_MHNOW"
+  "CW3_FRTVEGSP", "CW3_HSLEEPSP", 
+  "CW3_SATN", "CW3_MHNOW"
 )
 ```
 
@@ -200,6 +200,44 @@ ggplot(participation_summary_long, aes(x = participation, y = n, fill = particip
 ```{r}
 wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVFUNC"]
 wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVID19"]
+```
+
+#Changing weight from stones and pounds to KG for waves 1 & 2
+```{r}
+# convert stones and pounds to kg
+wave1_wght_add <- wave1_filtered %>%
+  mutate(CW1_WGHT = round((CW1_WGHTSTP_4 * 6.35029) + (CW1_WGHTSTP_5 * 0.453592)))
+
+# combine column for weight in kg and weight in stoens and pounds
+wave1_wght_tgh <- wave1_wght_add %>%
+  mutate(CW1_FINAL_WGHT = coalesce(CW1_WGHT, CW1_WGHTKG))
+
+wave1_wght_final <- wave1_wght_tgh %>%
+  select(-c(CW1_WGHT, CW1_WGHTKG, CW1_WGHTSTP_4, CW1_WGHTSTP_5))
+```
+
+```{r}
+# convert stones and pounds to kg
+wave2_wght_add <- wave2_filtered %>%
+  mutate(CW2_WGHT = round((CW2_WGHTSTP_4 * 6.35029) + (CW2_WGHTSTP_5 * 0.453592)))
+
+# combine column for weight in kg and weight in stoens and pounds
+wave2_wght_tgh <- wave2_wght_add %>%
+  mutate(CW2_FINAL_WGHT = coalesce(CW2_WGHT, CW2_WGHTKG))
+
+wave2_wght_final <- wave2_wght_tgh %>%
+  select(-c(CW2_WGHT, CW2_WGHTKG, CW2_WGHTSTP_4, CW2_WGHTSTP_5))
+```
+
+#Checking how many missing weight values there are
+```{r}
+head(wave1_wght_final)
+head(wave2_wght_final)
+```
+
+#Dropping the old weight variables
+```{r}
+
 ```
 
 #FOR MS IDs creating unqiue IDs for every family member
@@ -310,11 +348,111 @@ table(
 )
 ```
 
+#Filtering out wave 3 new participants
+```{r}
+wave3_not_new <- merged_data %>%
+  filter(CW3_W1OUTCOME == 1 | CW3_W2OUTCOME == 1)
+
+summary(wave3_not_new)
+head(wave3_not_new)
+```
+#Summing the counts of the different responses to CW3_outcome - whether they participated in W3 or not 
+```{r}
+# Count occurrences of each CW3_OUTCOME category
+cw3_outcome_summary <- wave3_not_new %>%
+  count(CW3_OUTCOME)
+
+# View the summary
+print(cw3_outcome_summary)
+```
+#Filtering out those that responded 2 for CW3_outcome as the definition of this is not clear from the user guide
+```{r}
+wave3_outcome1 <- wave3_not_new %>%
+  filter(CW3_OUTCOME == 1)
+```
+
+#Plots for final filtered and merged dataset 
+```{r}
+# Create mutually exclusive participation groups
+wave3_filtered_plot2 <- wave3_outcome1 %>%
+  mutate(
+    participation = case_when(
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME == 1 ~ "Both Waves 1 & 2",
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME != 1 ~ "Only Wave 1",
+      CW3_W1OUTCOME != 1 & CW3_W2OUTCOME == 1 ~ "Only Wave 2",
+      TRUE ~ "Only Wave 3"  # Default (neither W1 nor W2)
+    )
+  )
+
+# Summarize counts
+participation_summary1 <- wave3_filtered_plot2 %>%
+  count(participation)
+
+# Plot
+ggplot(participation_summary1, aes(x = participation, y = n, fill = participation)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), vjust = -0.5, size = 4) +
+  labs(
+    title = "Participation in Previous Waves (All Wave 3 Respondents)",
+    x = "Participation Group",
+    y = "Number of Respondents"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+```{r}
+wave3_longcov <- wave3_outcome1 %>%
+  mutate(
+    longcov = ifelse(CW3_COVFUNC %in% c(6, 7), 1, 0)
+  )
+
+
+
+wave3_longcovidcount <- wave3_longcov %>%
+  filter(longcov == 1) %>%
+  mutate(
+    participation = case_when(
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME == 1 ~ "Both Waves 1 & 2",
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME != 1 ~ "Only Wave 1",
+      CW3_W1OUTCOME != 1 & CW3_W2OUTCOME == 1 ~ "Only Wave 2",
+      TRUE ~ "Only Wave 3"
+    )
+  )
+
+# Summarize counts for Long COVID group
+participation_summary_longcov <- wave3_longcovidcount %>%
+  count(participation)
+
+# Plot
+ggplot(participation_summary_longcov, aes(x = participation, y = n, fill = participation)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = n), vjust = -0.5, size = 4) +
+  labs(
+    title = "Participation in Previous Waves (Long COVID Cases in Wave 3)",
+    x = "Participation Group",
+    y = "Number of Respondents"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+#Going from the filtered and merged dataframe containing longcov - wave3_long cov to adding an age variable and generalising the variables from 3 waves into single variables 
+```{r}
+head(wave3_longcov)
+```
+
+
+#Export merged data filtered for non-only-wave 3 participants
+```{r}
+# 1. Save wave1_clean
+#write.xlsx(wave3_not_new, file = "merged_wave_data_w1&2participants.xlsx")
+```
+
+
 #Exporting the merged dataset 
 ```{r}
 library(openxlsx)  # Install with install.packages("openxlsx") if needed
 
 # 1. Save wave1_clean
-write.xlsx(merged_data, file = "merged_wave_data.xlsx")
+#write.xlsx(merged_data, file = "merged_wave_data.xlsx")
 ```
 
