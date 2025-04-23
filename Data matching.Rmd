@@ -40,7 +40,7 @@ id_cols <- c("ID")
 w1_vars <- c(
   id_cols,
   "CW1_PNUM00", "CW1_CNUM00", 
-  "CW1_PSEX", "CW1_COVID19", "CW1_COVID_HOSPAD", 
+  "CW1_PSEX", 
   "CW1_COVIDSYMPT_1", "CW1_COVIDSYMPT_2", "CW1_COVIDSYMPT_3", 
   "CW1_COVIDSYMPT_4", "CW1_COVIDSYMPT_5", "CW1_COVIDSYMPT_6", 
   "CW1_COVIDSYMPT_7", "CW1_COVIDSYMPT_8", "CW1_COVIDSYMPT_18", 
@@ -54,14 +54,13 @@ w1_vars <- c(
   "CW1_SMOKING", "CW1_NUMCIGSPP", "CW1_NUMCIGSSP", "CW1_VAPE", 
   "CW1_VAPESP", "CW1_ALDRPP", "CW1_ALDRSP", "CW1_EXCISEPP", 
   "CW1_EXCISESP", "CW1_FRTVEGPP", "CW1_FRTVEGSP", "CW1_HSLEEPPP", 
-  "CW1_HSLEEPSP", "CW1_Weight", "CW1_WGHTKG", "CW1_SATN", "CW1_WGHTSTP_4", "CW1_WGHTSTP_5"
+  "CW1_HSLEEPSP", "CW1_WGHTKG", "CW1_SATN", "CW1_WGHTSTP_4", "CW1_WGHTSTP_5"
 )
 
 w2_vars <- c(
   id_cols,
   "CW2_PNUM00", "CW2_CNUM00",
-  "CW2_PSEX", "CW2_W1OUTCOME", "CW2_OUTCOME", "CW2_COVID19", 
-  "CW2_COVID19POS", "CW2_COVID_HOSPAD", 
+  "CW2_PSEX", "CW2_W1OUTCOME", "CW2_OUTCOME",
   "CW2_COVIDSYMPT_1", "CW2_COVIDSYMPT_2", "CW2_COVIDSYMPT_3", 
   "CW2_COVIDSYMPT_4", "CW2_COVIDSYMPT_5", "CW2_COVIDSYMPT_6", 
   "CW2_COVIDSYMPT_7", "CW2_COVIDSYMPT_8", "CW2_COVIDSYMPT_18", 
@@ -75,7 +74,7 @@ w2_vars <- c(
   "CW2_WRKHOURSD", "CW2_SMOKING", "CW2_NUMCIGSPP", "CW2_NUMCIGSSP", 
   "CW2_VAPE", "CW2_VAPESP", "CW2_ALDRPP", "CW2_ALDRSP", 
   "CW2_EXCISEPP", "CW2_EXCISESP", "CW2_FRTVEGPP", "CW2_FRTVEGSP", 
-  "CW2_HSLEEPPP", "CW2_HSLEEPSP", "CW2_Weight", "CW2_WGHTKG", 
+  "CW2_HSLEEPPP", "CW2_HSLEEPSP", "CW2_WGHTKG", 
   "CW2_SATN", "CW2_MHNOW", "CW2_WGHTSTP_4", "CW2_WGHTSTP_5"
 )
 
@@ -196,12 +195,6 @@ ggplot(participation_summary_long, aes(x = participation, y = n, fill = particip
   theme(legend.position = "none")
 ```
 
-#Replacing previous COVFUNC COVID19 variables
-```{r}
-wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVFUNC"]
-wave3_lc_clean <- wave3_lc[, !names(df_clean) %in% "CW3_COVID19"]
-```
-
 #Changing weight from stones and pounds to KG for waves 1 & 2
 ```{r}
 # convert stones and pounds to kg
@@ -235,17 +228,13 @@ head(wave1_wght_final)
 head(wave2_wght_final)
 ```
 
-#Dropping the old weight variables
-```{r}
-
-```
 
 #FOR MS IDs creating unqiue IDs for every family member
 ```{r}
 
-wave1_clean <- wave1_filtered
-wave2_clean <- wave2_filtered
-wave3_clean <- wave3_lc_clean
+wave1_clean <- wave1_wght_final
+wave2_clean <- wave2_wght_final
+wave3_clean <- wave3_lc
 
 head(wave1_clean)
 head(wave2_clean)
@@ -332,20 +321,10 @@ wave3_unq %>%
 ```{r}
 # Left-join Wave 1 and Wave 2 data to Wave 3
 merged_data <- wave3_unq %>%
-  left_join(wave1_unq, by = "ID", suffix = c("", "_W1")) %>%
-  left_join(wave2_unq, by = "ID", suffix = c("", "_W2"))
+  left_join(wave1_unq, by = "ID") %>%
+  left_join(wave2_unq, by = "ID")
 
-# Optional: Rename Wave 1/Wave 2 columns for clarity
-merged_data <- merged_data %>%
-  rename_with(~ paste0(., "_W1"), .cols = setdiff(names(wave1_filtered), "ID")) %>%
-  rename_with(~ paste0(., "_W2"), .cols = setdiff(names(wave2_filtered), "ID"))
-
-# Check participation overlap
-table(
-  "Wave 1" = !is.na(merged_data$CW1_PSEX_W1),
-  "Wave 2" = !is.na(merged_data$CW2_PSEX_W2),
-  useNA = "always"
-)
+head(merged_data)
 ```
 
 #Filtering out wave 3 new participants
@@ -435,16 +414,249 @@ ggplot(participation_summary_longcov, aes(x = participation, y = n, fill = parti
   theme_minimal() +
   theme(legend.position = "none")
 ```
+
 #Going from the filtered and merged dataframe containing longcov - wave3_long cov to adding an age variable and generalising the variables from 3 waves into single variables 
+
+#Pre pandemic outbreak variables 
 ```{r}
-head(wave3_longcov)
+#Take first wave replied value and make general value and then get rid of old ones
+
+# First, define participation groups using ONLY the specified flags
+merged_data_participate <- wave3_longcov %>%
+  mutate(
+    participation_group = case_when(
+      # Case 1: Only Wave 1 + Wave 3 (participated in W1 but not W2)
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME != 1 ~ "W1_W3",
+      
+      # Case 2: Only Wave 2 + Wave 3 (participated in W2 but not W1)
+      CW3_W1OUTCOME != 1 & CW3_W2OUTCOME == 1 ~ "W2_W3",
+      
+      # Case 3: All three waves (participated in both W1 and W2)
+      CW3_W1OUTCOME == 1 & CW3_W2OUTCOME == 1 ~ "W1_W2_W3",
+      
+      TRUE ~ NA_character_
+    )
+  )
 ```
 
+```{r}
+head(merged_data_participate)
+```
+
+```{r}
+
+# Create consolidated variables with _pre suffix (except FINAL_WGHT and NUMROOMS)
+merged_data_precov <- merged_data_participate %>%
+  mutate(
+    # Variables that get _pre suffix
+    GHQPRECOVID_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_GHQPRECOVID,
+      participation_group == "W2_W3" ~ CW2_GHQPRECOVID,
+      participation_group == "W1_W2_W3" ~ CW1_GHQPRECOVID
+    ),
+    LLI_17_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_LLI_17,
+      participation_group == "W2_W3" ~ CW2_LLI_17,
+      participation_group == "W1_W2_W3" ~ CW1_LLI_17
+    ),
+    OUTDOORS_4_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_OUTDOORS_4,
+      participation_group == "W2_W3" ~ CW2_OUTDOORS_4,
+      participation_group == "W1_W2_W3" ~ CW1_OUTDOORS_4
+    ),
+    FINANCIALMANB_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_FINANCIALMANB,
+      participation_group == "W2_W3" ~ CW2_FINANCIALMANB,
+      participation_group == "W1_W2_W3" ~ CW1_FINANCIALMANB
+    ),
+    ECONACTIVITYB_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_ECONACTIVITYB,
+      participation_group == "W2_W3" ~ CW2_ECONACTIVITYB,
+      participation_group == "W1_W2_W3" ~ CW1_ECONACTIVITYB
+    ),
+    WRKHOURSB_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_WRKHOURSB,
+      participation_group == "W2_W3" ~ CW2_WRKHOURSB,
+      participation_group == "W1_W2_W3" ~ CW1_WRKHOURSB
+    ),
+    
+    # Variables that don't get _pre suffix
+    FINAL_WGHT = case_when(
+      participation_group == "W1_W3" ~ CW1_FINAL_WGHT,
+      participation_group == "W2_W3" ~ CW2_FINAL_WGHT,
+      participation_group == "W1_W2_W3" ~ CW1_FINAL_WGHT
+    ),
+    NUMROOMS = case_when(
+      participation_group == "W1_W3" ~ CW1_NUMROOMS,
+      participation_group == "W2_W3" ~ CW2_NUMROOMS,
+      participation_group == "W1_W2_W3" ~ CW1_NUMROOMS
+    ),
+    
+    # Behavioral variables (get _pre suffix)
+    SMOKING_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_SMOKING,
+      participation_group == "W2_W3" ~ CW2_SMOKING,
+      participation_group == "W1_W2_W3" ~ CW1_SMOKING
+    ),
+    NUMCIGSPP_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_NUMCIGSPP,
+      participation_group == "W2_W3" ~ CW2_NUMCIGSPP,
+      participation_group == "W1_W2_W3" ~ CW1_NUMCIGSPP
+    ),
+    VAPE_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_VAPE,
+      participation_group == "W2_W3" ~ CW2_VAPE,
+      participation_group == "W1_W2_W3" ~ CW1_VAPE
+    ),
+    ALDRPP_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_ALDRPP,
+      participation_group == "W2_W3" ~ CW2_ALDRPP,
+      participation_group == "W1_W2_W3" ~ CW1_ALDRPP
+    ),
+    EXCISEPP_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_EXCISEPP,
+      participation_group == "W2_W3" ~ CW2_EXCISEPP,
+      participation_group == "W1_W2_W3" ~ CW1_EXCISEPP
+    ),
+    FRTVEGPP_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_FRTVEGPP,
+      participation_group == "W2_W3" ~ CW2_FRTVEGPP,
+      participation_group == "W1_W2_W3" ~ CW1_FRTVEGPP
+    ),
+    HSLEEPPP_pre = case_when(
+      participation_group == "W1_W3" ~ CW1_HSLEEPPP,
+      participation_group == "W2_W3" ~ CW2_HSLEEPPP,
+      participation_group == "W1_W2_W3" ~ CW1_HSLEEPPP
+    )
+  )
+
+# Remove old wave-specific columns (optional)
+merged_data_precov2 <- merged_data_precov %>%
+  select(-matches("^CW[1-3]_((GHQPRECOVID$|LLI_17$|OUTDOORS_4$|FINANCIALMANB$|ECONACTIVITYB$|WRKHOURSB$|NUMROOMS$|FINAL_WGHT$|SMOKING$|NUMCIGSPP$|VAPE$|ALDRPP$|EXCISEPP$|FRTVEGPP$|HSLEEPPP$))"))
+
+```
+
+#Demographic variables/ Set variables 
+```{r}
+#Drop w1 and w2 for these variables 
+merged_data_demo <- merged_data_precov2 %>%
+  rename(
+    # Demographic variables
+    PSEX = CW3_PSEX,
+    GHQ = CW3_GHQ,
+    HHNUM = CW3_HHNUM,
+    RELSAT = CW3_RELSAT,
+    
+    # Special case - PMED only exists in Wave 2
+    PMED = CW3_PMED
+  )
+
+# Step 2: Remove all wave-specific versions of these variables
+merged_data_demographic <- merged_data_demo %>%
+  select(
+    -matches("^CW[1-3]_(PSEX$|GHQ$|HHNUM$|RELSAT$)"),  # Removes all wave versions
+    -CW2_PMED  # Only keep CW2_PMED (already renamed to PMED)
+  )
+
+```
+
+```{r}
+head(merged_data_demographic)
+```
+
+#Post pandemic outbreak variables
+```{r}
+#rename with postfix post and drop any of this variable from the previous columns 
+
+merged_data_postcov <- merged_data_demographic %>%
+  mutate(
+    # Create _post versions of all specified Wave 3 variables
+    FINANCIALMAND_post = CW3_FINANCIALMAND,
+    GROWB2_post = CW3_GROWB2,
+    ECONACTIVITYD_post = CW3_ECONACTIVITYD,
+    WRKHOURSD_post = CW3_WRKHOURSD,
+    NUMCIGSSP_post = CW3_NUMCIGSSP,
+    VAPESP_post = CW3_VAPESP,
+    ALDRSP_post = CW3_ALDRSP,
+    EXCISESP_post = CW3_EXCISESP,
+    FRTVEGSP_post = CW3_FRTVEGSP,
+    HSLEEPSP_post = CW3_HSLEEPSP,
+    SATN_post = CW3_SATN,
+    MHNOW_post = CW3_MHNOW
+  ) %>%
+  # Remove all wave-specific versions (W1, W2, and W3)
+  select(
+    -CW1_FINANCIALMAND, -CW2_FINANCIALMAND, -CW3_FINANCIALMAND,
+    -CW1_ECONACTIVITYD, -CW2_ECONACTIVITYD, -CW3_ECONACTIVITYD,
+    -CW1_WRKHOURSD, -CW2_WRKHOURSD, -CW3_WRKHOURSD,
+    -CW1_NUMCIGSSP, -CW2_NUMCIGSSP, -CW3_NUMCIGSSP,
+    -CW1_VAPESP, -CW2_VAPESP, -CW3_VAPESP,
+    -CW1_ALDRSP, -CW2_ALDRSP, -CW3_ALDRSP,
+    -CW1_EXCISESP, -CW2_EXCISESP, -CW3_EXCISESP,
+    -CW1_FRTVEGSP, -CW2_FRTVEGSP, -CW3_FRTVEGSP,
+    -CW1_HSLEEPSP, -CW2_HSLEEPSP, -CW3_HSLEEPSP,
+    -CW1_SATN, -CW2_SATN, -CW3_SATN,
+    -CW2_MHNOW, -CW3_MHNOW
+  )
+
+```
+
+```{r}
+head(merged_data_postcov)
+```
+
+#Covid symptoms
+```{r}
+#Take whether any of the variable have appeared or not to make binary variable 
+# Start with the original data
+merged_data_covsympt <- merged_data_postcov
+# List of symptom numbers (without prefix)
+
+symptom_nums <- c(1,2,3,4,5,6,7,8,18,10,11,12,16,13,14,17,19,20,23)
+
+# Loop to add one general binary column per symptom
+for (num in symptom_nums) {
+  wave_vars <- paste0("CW", 1:3, "_COVIDSYMPT_", num)
+  
+  merged_data_covsympt <- merged_data_covsympt %>%
+    mutate(!!paste0("COVIDSYMPT_", num) := if_else(
+      rowSums(across(all_of(wave_vars), ~ .x == 1), na.rm = TRUE) > 0,
+      1, 0
+    ))
+}
+
+# Now remove the original wave-specific columns
+merged_data_covsympt1 <- merged_data_covsympt %>%
+  select(-matches("^CW[1-3]_COVIDSYMPT_"))
+
+```
+
+```{r}
+head(merged_data_covsympt)
+head(merged_data_covsympt1)
+```
+
+```{r}
+#Drop outcome "CW3_W1OUTCOME", "CW3_OUTCOME", "CW3_W2OUTCOME", variables and CW3_PNUM00 CW3_CNUM00 CW1_PNUM00 CW1_CNUM00 and covfunc
+
+cols_to_drop <- c("CW3_W1OUTCOME", "CW3_OUTCOME", "CW3_W2OUTCOME",
+                  "CW3_PNUM00", "CW3_CNUM00", "CW1_PNUM00", "CW1_CNUM00", "CW3_COVFUNC", "CW2_PNUM00", "CW2_CNUM00", "CW2_W1OUTCOME"      , "CW2_OUTCOME",  "participation_group")
+
+merged_data_allcol <- merged_data_covsympt1 %>%
+  select(-any_of(cols_to_drop))
+
+```
+
+#Set all negative ones as N/A check first if any negatives exist
+```{r}
+neg_col_check <- sapply(merged_data_covsympt1, function(x) any(x < 0, na.rm = TRUE))
+neg_col_check[neg_col_check == TRUE]
+```
 
 #Export merged data filtered for non-only-wave 3 participants
 ```{r}
 # 1. Save wave1_clean
-#write.xlsx(wave3_not_new, file = "merged_wave_data_w1&2participants.xlsx")
+#write.xlsx(merged_data, file = "merged_wave_data_w1&2participants.xlsx")
 ```
 
 
@@ -456,3 +668,8 @@ library(openxlsx)  # Install with install.packages("openxlsx") if needed
 #write.xlsx(merged_data, file = "merged_wave_data.xlsx")
 ```
 
+#Export final merged & generalised dataset
+```{r}
+library(openxlsx)
+write.xlsx(merged_data_allcol, file = "final_merged_generalised_dataset.xlsx")
+```
