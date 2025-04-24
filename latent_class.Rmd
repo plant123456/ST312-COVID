@@ -15,6 +15,8 @@ df <- read.xlsx("final_merged_generalised_dataset.xlsx")
 
 head(df)
 ```
+# Analysis of all individuals
+
 
 # Analysis of individuals with long covid 
 
@@ -33,7 +35,7 @@ colSums(is.na(filtered_df))
 ## Select variables
 ```{r}
 selected_df <- filtered_df[, intersect(c(
-  "PSEX", "CW3_COVID19", "CW3_COVID_HOSPAD", "CW3_COVNEWILL", 
+  "PSEX", "CW3_COHORT", "CW3_COVID_HOSPAD", "CW3_COVNEWILL", 
   "CW3_FATGRID_1", "CW3_FATGRID_2", "CW3_FATGRID_3", "CW3_FATGRID_4", 
   "CW3_FATGRID_5", "CW3_FATGRID_6", "CW3_FATGRID_7", "CW3_FATGRID_8", 
   "CW3_FATGRID_9", "CW3_FATGRID_10", "CW3_MEMORY", "CW3_SKIN", "CW3_SHORTB", "CW3_PALP", "CW3_ACTIVITY", "COVIDSYMPT_1", "COVIDSYMPT_2", "COVIDSYMPT_3", "COVIDSYMPT_4", "COVIDSYMPT_5", "COVIDSYMPT_6", 
@@ -58,6 +60,9 @@ print(unique_values)
 ```{r}
 # For sex
 selected_df$PSEX <- factor(selected_df$PSEX, levels = c(1, 2), labels = c("Male", "Female"))
+
+# For cohort
+selected_df$CW3_COHORT <- factor(selected_df$CW3_COHORT, levels = c(1, 2, 3, 4, 5), labels = c("C1", "C2", "C3", "C4", "C5"))
 
 # For memory
 selected_df$CW3_MEMORY <- factor(selected_df$CW3_MEMORY, levels = c(1, 2, 3, 4), labels = c("Better", "Usual", "Worse", "Much Worse"))
@@ -158,38 +163,10 @@ head(selected_df)
 unique_values <- sapply(selected_df, unique)
 print(unique_values)
 ```
-## Check and convert column type
-```{r}
-selected_df$CW3_FATGRID_1 <- addNA(selected_df$CW3_FATGRID_1, ifany = FALSE)
-selected_df$CW3_FATGRID_2 <- addNA(selected_df$CW3_FATGRID_2, ifany = FALSE)
-selected_df$CW3_FATGRID_3 <- addNA(selected_df$CW3_FATGRID_3, ifany = FALSE)
-selected_df$CW3_FATGRID_4 <- addNA(selected_df$CW3_FATGRID_4, ifany = FALSE)
-selected_df$CW3_FATGRID_5 <- addNA(selected_df$CW3_FATGRID_5, ifany = FALSE)
-selected_df$CW3_FATGRID_6 <- addNA(selected_df$CW3_FATGRID_6, ifany = FALSE)
-selected_df$CW3_FATGRID_7 <- addNA(selected_df$CW3_FATGRID_7, ifany = FALSE)
-selected_df$CW3_FATGRID_8 <- addNA(selected_df$CW3_FATGRID_8, ifany = FALSE)
-selected_df$CW3_FATGRID_9 <- addNA(selected_df$CW3_FATGRID_9, ifany = FALSE)
-selected_df$CW3_FATGRID_10 <- addNA(selected_df$CW3_FATGRID_10, ifany = FALSE)
-selected_df$CW3_SKIN <- addNA(selected_df$CW3_SKIN, ifany = FALSE)
-selected_df$CW3_SHORTB <- addNA(selected_df$CW3_SHORTB, ifany = FALSE)
-selected_df$CW3_PALP <- addNA(selected_df$CW3_PALP, ifany = FALSE)
-selected_df$CW3_ACTIVITY <- addNA(selected_df$CW3_ACTIVITY, ifany = FALSE)
-selected_df$GHQPRECOVID_pre <- addNA(selected_df$GHQPRECOVID_pre, ifany = FALSE)
-selected_df$LLI_17_pre <- addNA(selected_df$LLI_17_pre, ifany = FALSE)
-selected_df$OUTDOORS_4_pre <- addNA(selected_df$OUTDOORS_4_pre, ifany = FALSE)
-selected_df$FINANCIALMANB_pre <- addNA(selected_df$FINANCIALMANB_pre, ifany = FALSE)
-selected_df$SMOKING_pre <- addNA(selected_df$SMOKING_pre, ifany = FALSE)
-selected_df$VAPE_pre <- addNA(selected_df$VAPE_pre, ifany = FALSE)
-selected_df$ALDRPP_pre <- addNA(selected_df$ALDRPP_pre, ifany = FALSE)
-selected_df$ALDRSP_post <- addNA(selected_df$ALDRSP_post, ifany = FALSE)
-selected_df$MHNOW_post <- addNA(selected_df$MHNOW_post, ifany = FALSE)
 
-str(selected_df)
-```
-
-# LCA model
+# LCA model for individuals with long covid
 ```{r}
-lca_model <- poLCA(cbind(PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+lca_model <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
 CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
 CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
 CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
@@ -205,7 +182,7 @@ summary(lca_model)
 
 ## Compare AIC and BIC values fo different number of classes
 ```{r}
-model_1_class <- poLCA(cbind(PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+model_1_class <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
 CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
 CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
 CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
@@ -215,7 +192,7 @@ COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14,
 COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
 COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 1)
 
-model_2_classes <- poLCA(cbind(PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+model_2_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
 CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
 CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
 CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
@@ -225,7 +202,7 @@ COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14,
 COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
 COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 2)
 
-model_3_classes <- poLCA(cbind(PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
+model_3_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
 CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
 CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
 CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
@@ -235,8 +212,7 @@ COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14,
 COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
 COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 3)
 
-model_4_classes <- poLCA(cbind(PSEX, CW3_COVID19, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
+model_4_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
 CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
 CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
 COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 

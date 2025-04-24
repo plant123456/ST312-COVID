@@ -77,6 +77,13 @@ print(best_model)
 print(rf_tuned$results)
 ```
 
+## Best model
+```{r}
+best_model <- randomForest(longcov ~ . - ID, data = df_complete, mtry = 5, ntree = 500)
+
+print(best_model)
+```
+
 # Variable importance
 ```{r}
 varImpPlot(rf_tuned$finalModel)
