@@ -158,9 +158,32 @@ head(selected_df)
 unique_values <- sapply(selected_df, unique)
 print(unique_values)
 ```
-## Check column type
+## Check and convert column type
 ```{r}
-selected_df[] <- lapply(selected_df, factor)
+selected_df$CW3_FATGRID_1 <- addNA(selected_df$CW3_FATGRID_1, ifany = FALSE)
+selected_df$CW3_FATGRID_2 <- addNA(selected_df$CW3_FATGRID_2, ifany = FALSE)
+selected_df$CW3_FATGRID_3 <- addNA(selected_df$CW3_FATGRID_3, ifany = FALSE)
+selected_df$CW3_FATGRID_4 <- addNA(selected_df$CW3_FATGRID_4, ifany = FALSE)
+selected_df$CW3_FATGRID_5 <- addNA(selected_df$CW3_FATGRID_5, ifany = FALSE)
+selected_df$CW3_FATGRID_6 <- addNA(selected_df$CW3_FATGRID_6, ifany = FALSE)
+selected_df$CW3_FATGRID_7 <- addNA(selected_df$CW3_FATGRID_7, ifany = FALSE)
+selected_df$CW3_FATGRID_8 <- addNA(selected_df$CW3_FATGRID_8, ifany = FALSE)
+selected_df$CW3_FATGRID_9 <- addNA(selected_df$CW3_FATGRID_9, ifany = FALSE)
+selected_df$CW3_FATGRID_10 <- addNA(selected_df$CW3_FATGRID_10, ifany = FALSE)
+selected_df$CW3_SKIN <- addNA(selected_df$CW3_SKIN, ifany = FALSE)
+selected_df$CW3_SHORTB <- addNA(selected_df$CW3_SHORTB, ifany = FALSE)
+selected_df$CW3_PALP <- addNA(selected_df$CW3_PALP, ifany = FALSE)
+selected_df$CW3_ACTIVITY <- addNA(selected_df$CW3_ACTIVITY, ifany = FALSE)
+selected_df$GHQPRECOVID_pre <- addNA(selected_df$GHQPRECOVID_pre, ifany = FALSE)
+selected_df$LLI_17_pre <- addNA(selected_df$LLI_17_pre, ifany = FALSE)
+selected_df$OUTDOORS_4_pre <- addNA(selected_df$OUTDOORS_4_pre, ifany = FALSE)
+selected_df$FINANCIALMANB_pre <- addNA(selected_df$FINANCIALMANB_pre, ifany = FALSE)
+selected_df$SMOKING_pre <- addNA(selected_df$SMOKING_pre, ifany = FALSE)
+selected_df$VAPE_pre <- addNA(selected_df$VAPE_pre, ifany = FALSE)
+selected_df$ALDRPP_pre <- addNA(selected_df$ALDRPP_pre, ifany = FALSE)
+selected_df$ALDRSP_post <- addNA(selected_df$ALDRSP_post, ifany = FALSE)
+selected_df$MHNOW_post <- addNA(selected_df$MHNOW_post, ifany = FALSE)
+
 str(selected_df)
 ```
 

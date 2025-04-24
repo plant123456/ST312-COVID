@@ -1,0 +1,94 @@
+---
+title: "Machine Learning Methods"
+---
+
+# Load library
+```{r}
+library(openxlsx)
+library(randomForest)
+library(caret)
+```
+
+# Load data
+```{r}
+df <- read.xlsx("final_merged_generalised_dataset2.xlsx")
+head(df)
+```
+
+# Data Cleaning
+
+## Check the number of null values
+```{r}
+colSums(is.na(df))
+```
+## Select columns with less than 500 missing values
+```{r}
+df_filtered <- df[, colSums(is.na(df)) < 500]
+colSums(is.na(df_filtered))
+```
+## Remove missing values
+```{r}
+df_complete <- df_filtered[complete.cases(df_filtered), ]
+dim(df_complete)
+```
+
+# Logistic regression
+```{r}
+log_mod <- glm(longcov ~ . - ID, data = df_complete, family = binomial)
+
+summary(log_mod)
+```
+Significant predictors from initial logistic regression: CW3_COVID19, CW3_COVID19POS, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_3, CW3_SHORTB, CW3_ACTIVITY, GHQPRECOVID_pre, HSLEEPPP_pre, MHNOW_post
+
+# Random forest
+```{r}
+df_complete$longcov <- as.factor(df_complete$longcov)
+rf_model <- randomForest(longcov ~ . - ID, data = df_complete, ntree = 500)
+
+print(rf_model)
+```
+
+## Tuning (not yet completed)
+```{r}
+train_control <- trainControl(method = "cv", number = 10)
+
+# Define the tuning grid
+tune_grid <- expand.grid(
+  mtry = c(2, 3, 4, 5, 6) 
+)
+
+rf_tuned <- train(
+  longcov ~ . - ID,  
+  data = df_complete,  
+  method = "rf", 
+  trControl = train_control,  
+  tuneGrid = tune_grid, 
+  importance = TRUE  
+)
+
+print(rf_tuned)
+```
+
+## Best model
+```{r}
+best_model <- rf_tuned$bestTune
+print(best_model)
+
+print(rf_tuned$results)
+```
+
+# Variable importance
+```{r}
+varImpPlot(rf_tuned$finalModel)
+```
+
+# 
+```{r}
+```
+
+
+
+
+
+
+
