@@ -31,14 +31,19 @@ colSums(is.na(df_filtered))
 df_complete <- df_filtered[complete.cases(df_filtered), ]
 dim(df_complete)
 ```
+## Remove COVIDSYMPT
+```{r}
+df_complete <- df_complete[ , !grepl("COVIDSYMPT", names(df_complete))]
+head(df_complete)
+```
 
 # Logistic regression
 ```{r}
-log_mod <- glm(longcov ~ . - ID, data = df_complete, family = binomial)
+log_mod <- glm(longcov ~ . - ID - CW3_COVID19, data = df_complete, family = binomial)
 
 summary(log_mod)
 ```
-Significant predictors from initial logistic regression: CW3_COVID19, CW3_COVID19POS, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_3, CW3_SHORTB, CW3_ACTIVITY, GHQPRECOVID_pre, HSLEEPPP_pre, MHNOW_post
+Significant predictors from initial logistic regression: CW3_COVID19POS, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_1, CW3_FATGRID_3, CW3_MEMORY, CW3_SHORTB, CW3_ACTIVITY, GHQPRECOVID_pre, HSLEEPPP_pre
 
 # Random forest
 ```{r}
