@@ -7,6 +7,7 @@ title: "Machine Learning Methods"
 library(openxlsx)
 library(randomForest)
 library(caret)
+library(ggplot2)
 ```
 
 # Load data
@@ -31,72 +32,152 @@ colSums(is.na(df_filtered))
 df_complete <- df_filtered[complete.cases(df_filtered), ]
 dim(df_complete)
 ```
-## Remove COVIDSYMPT
+## Remove COVIDSYMPT, ID, and COVID19
 ```{r}
 df_complete <- df_complete[ , !grepl("COVIDSYMPT", names(df_complete))]
+df_complete <- df_complete[, !(names(df_complete) %in% "ID")]
+df_complete <- df_complete[, !(names(df_complete) %in% "CW3_COVID19")]
 head(df_complete)
 ```
 
-# Logistic regression
+## Split data into training and test set
 ```{r}
-log_mod <- glm(longcov ~ . - ID - CW3_COVID19, data = df_complete, family = binomial)
+set.seed(38036)
+train_idx <- sample(seq_len(nrow(df_complete)), size = 0.7 * nrow(df_complete))
+train_data <- df_complete[train_idx, ]
+test_data <- df_complete[-train_idx, ]
+```
+
+# Logistic regression
+
+## Model
+```{r}
+log_mod <- glm(longcov ~ . , data = train_data, family = binomial)
 
 summary(log_mod)
 ```
-Significant predictors from initial logistic regression: CW3_COVID19POS, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_1, CW3_FATGRID_3, CW3_MEMORY, CW3_SHORTB, CW3_ACTIVITY, GHQPRECOVID_pre, HSLEEPPP_pre
+Significant predictors from initial logistic regression: CW3_COVID19POS, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_TIREDGRID_4, CW3_FATGRID_1, CW3_FATGRID_3, CW3_MEMORY, CW3_SHORTB, CW3_ACTIVITY, HHNUM, GHQPRECOVID_pre, FINANCIALMANB_pre, HSLEEPPP_pre, FRTVEGSP_post
+
+## Calculate train and test accuracy:
+```{r}
+train_probs <- predict(log_mod, type = "response")
+test_probs <- predict(log_mod, newdata = test_data, type = "response")
+
+train_pred <- ifelse(train_probs > 0.5, 1, 0)
+test_pred <- ifelse(test_probs > 0.5, 1, 0)
+
+train_accuracy <- mean(train_pred == train_data$longcov)
+test_accuracy <- mean(test_pred == test_data$longcov)
+
+cat("Logistic regression training accuracy:", round(train_accuracy, 3), "\n")
+cat("Logistic regression test accuracy:", round(test_accuracy, 3), "\n")
+```
+## Check confusion matrix
+```{r}
+cm <- table(Predicted = test_pred, Actual = test_data$longcov)
+cm
+```
 
 # Random forest
+
+## Initial Model
 ```{r}
-df_complete$longcov <- as.factor(df_complete$longcov)
-rf_model <- randomForest(longcov ~ . - ID, data = df_complete, ntree = 500)
+train_data$longcov <- factor(train_data$longcov, levels = c("0", "1"), labels = c("No", "Yes"))
+test_data$longcov  <- factor(test_data$longcov,  levels = c("0", "1"), labels = c("No", "Yes"))
+
+
+rf_model <- randomForest(longcov ~ . , data = train_data, ntree = 500)
 
 print(rf_model)
 ```
 
-## Tuning (not yet completed)
+## Tuning with caret
 ```{r}
 train_control <- trainControl(method = "cv", number = 10)
 
-# Define the tuning grid
-tune_grid <- expand.grid(
-  mtry = c(2, 3, 4, 5, 6) 
-)
+tunegrid <- expand.grid(.mtry = 2:8)
+results <- list()
 
-rf_tuned <- train(
-  longcov ~ . - ID,  
-  data = df_complete,  
-  method = "rf", 
-  trControl = train_control,  
-  tuneGrid = tune_grid, 
-  importance = TRUE  
-)
+set.seed(38036)
+for (ntree in c(300, 500, 800)) {
+  rf_tuned <- train(
+    longcov ~ .,
+    data = train_data,
+    method = "rf",
+    metric = "ROC",
+    tuneGrid = tunegrid,
+    trControl = ctrl,
+    ntree = ntree
+  )
+  results[[paste0("ntree_", ntree)]] <- rf_tuned
+}
 
-print(rf_tuned)
+lapply(results, function(x) x$results)
 ```
 
 ## Best model
 ```{r}
-best_model <- rf_tuned$bestTune
+best_models <- lapply(results, function(x) {
+  best_row <- x$results[which.max(x$results$ROC), ]
+  list(best_row = best_row, model = x)
+})
+
+best_results_df <- do.call(rbind, lapply(best_models, function(x) x$best_row))
+rownames(best_results_df) <- names(results)
+print(best_results_df)
+
+best_idx <- which.max(best_results_df$ROC)
+best_model_name <- rownames(best_results_df)[best_idx]
+cat("Best model is:", best_model_name, "\n")
+
+best_model <- best_models[[best_idx]]$model
+```
+
+## Fit best model
+```{r}
+best_model <- randomForest(longcov ~ . , data = train_data, mtry = 5, ntree = 800)
+
 print(best_model)
-
-print(rf_tuned$results)
 ```
-
-## Best model
+## Calculate train and test accuracy
 ```{r}
-best_model <- randomForest(longcov ~ . - ID, data = df_complete, mtry = 5, ntree = 500)
+train_pred <- predict(best_model, newdata = train_data)
+train_actual <- train_data$longcov
+train_accuracy <- mean(train_pred == train_actual)
+cat("Random forest train accuracy:", round(train_accuracy, 3), "\n")
 
-print(best_model)
+test_pred <- predict(best_model, newdata = test_data)
+test_actual <- test_data$longcov
+test_accuracy <- mean(test_pred == test_actual)
+cat("Random forest test accuracy:", round(test_accuracy, 3), "\n")
 ```
-
-# Variable importance
+## Confusion matrix
 ```{r}
-varImpPlot(rf_tuned$finalModel)
+conf_matrix <- confusionMatrix(test_pred, test_actual)
+print(conf_matrix)
 ```
 
-# 
+## Variable importance
 ```{r}
+importance <- varImp(best_model)
+print(importance)
+
+imp_df <- as.data.frame(importance)
+imp_df$Variable <- rownames(imp_df)
+
+top10 <- imp_df[order(imp_df$Overall, decreasing = TRUE), ][1:10, ]
+
+ggplot(top10, aes(x = reorder(Variable, Overall), y = Overall)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 10 Variable Importance (Random Forest)",
+    x = "Variable",
+    y = "Importance"
+  ) +
+  theme_minimal(base_size = 15)
 ```
+The top 5 important variables in the random forest model are: CW3_ACTIVITY, CW3_SHORTB, SATN_post, NUMROOMS, CW3_COVID19POS
 
 
 
