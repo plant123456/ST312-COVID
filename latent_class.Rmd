@@ -8,6 +8,8 @@ library(poLCA)
 library(dplyr)
 library(openxlsx)
 library(ggplot2)
+library(tidyr)
+library(purrr)
 ```
 
 # Load data
@@ -23,197 +25,118 @@ head(df)
 colSums(is.na(df))
 ```
 
-## Select columns with less than 500 missing values
+## Remove predictors
 ```{r}
-df_clean <- df[, colSums(is.na(df)) < 500]
+# remove numerical or predictors with too many missing values
+df <- df[, !(names(df) %in% "ID")]
+df <- df[, !(names(df) %in% "RELSAT")]
+df <- df[, !(names(df) %in% "GROWB2_post")]
+df <- df[, !(names(df) %in% "CW3_GROWB2")]
+df <- df[, !(names(df) %in% "FINAL_WGHT")]
+df <- df[, !(names(df) %in% "HSLEEPPP_pre")]
+df <- df[, !(names(df) %in% "HSLEEPSP_post")]
+df <- df[, !(names(df) %in% "WRKHOURSB_pre")]
+df <- df[, !(names(df) %in% "WRKHOURSD_post")]
+df <- df[, !(names(df) %in% "HHNUM")]
+df <- df[, !(names(df) %in% "NUMROOMS")]
+df <- df[, !(names(df) %in% "NUMCIGSPP_pre")]
+df <- df[, !(names(df) %in% "NUMCIGSSP_post")]
+df <- df[, !(names(df) %in% "EXCISEPP_pre")]
+df <- df[, !(names(df) %in% "EXCISESP_post")]
+df <- df[, !(names(df) %in% "FRTVEGPP_pre")]
+df <- df[, !(names(df) %in% "FRTVEGSP_post")]
+df <- df[, !(names(df) %in% "CW3_COVID19POS")]
+df <- df[ , !grepl("TIREDGRID", names(df))]
+df <- df[ , !grepl("COVNEWILT", names(df))]
 
-colSums(is.na(df_clean))
-dim(df_clean)
+colSums(is.na(df))
 ```
 
-## Select variables
+## Replace or turn missing values into a factor
 ```{r}
-df_selected <- df_clean[, intersect(c( "longcov",
-  "PSEX", "CW3_COHORT", "CW3_COVID_HOSPAD", "CW3_COVNEWILL", 
-  "CW3_FATGRID_1", "CW3_FATGRID_2", "CW3_FATGRID_3", "CW3_FATGRID_4", 
-  "CW3_FATGRID_5", "CW3_FATGRID_6", "CW3_FATGRID_7", "CW3_FATGRID_8", 
-  "CW3_FATGRID_9", "CW3_FATGRID_10", "CW3_MEMORY", "CW3_SKIN", "CW3_SHORTB", "CW3_PALP", "CW3_ACTIVITY", "COVIDSYMPT_1", "COVIDSYMPT_2", "COVIDSYMPT_3", "COVIDSYMPT_4", "COVIDSYMPT_5", "COVIDSYMPT_6", 
-  "COVIDSYMPT_7", "COVIDSYMPT_8", "COVIDSYMPT_18", 
-  "COVIDSYMPT_10", "COVIDSYMPT_11", "COVIDSYMPT_12", 
-  "COVIDSYMPT_16", "COVIDSYMPT_13", "COVIDSYMPT_14", 
-  "COVIDSYMPT_17", "COVIDSYMPT_19", "COVIDSYMPT_20", 
-  "COVIDSYMPT_23", "GHQPRECOVID_pre", "LLI_17_pre", "OUTDOORS_4_pre", "FINANCIALMANB_pre", "SMOKING_pre", "VAPE_pre", "ALDRPP_pre", "FINANCIALMAND_post", "ALDRSP_post", "MHNOW_post", "PMED"), colnames(df_clean))]
+# set missing values for number of cigarettes as 0
+df$NUMCIGSPP_pre[is.na(df$NUMCIGSPP_pre)] <- 0
+df$NUMCIGSSP_post[is.na(df$NUMCIGSSP_post)] <- 0
+
+# convert NA to a missing level
+fatgrid_vars <- grep("FATGRID", names(df), value = TRUE)
+
+vars_to_convert <- c("CW3_COVNEWILL", "CW3_BEENVAC", "GHQ", "PMED", "CW3_ECONACTIVITYB2", "GHQPRECOVID_pre", "LLI_17_pre", "OUTDOORS_4_pre", "FINANCIALMANB_pre", "ECONACTIVITYB_pre", "SMOKING_pre", "VAPE_pre", "ALDRPP_pre", "FINANCIALMAND_post", "ECONACTIVITYD_post", "VAPESP_post", "ALDRSP_post", "SATN_post", "MHNOW_post", "CW3_SHORTB", "CW3_PALP", "CW3_ACTIVITY", "CW3_MEMORY", "CW3_SKIN")
+
+vars_to_convert <- c(vars_to_convert, fatgrid_vars)
+
+for (var in vars_to_convert) {
+  df[[var]] <- factor(df[[var]], exclude = NULL)
+  levels(df[[var]])[is.na(levels(df[[var]]))] <- "Missing"
+}
+
+# check unique values
+lapply(df, unique)
+```
+
+## Check the number of missing values
+```{r}
+colSums(is.na(df))
+```
+
+
+## Check dimension
+```{r}
+df_selected <- df
+df_selected <- df_selected[, !(names(df_selected) %in% "longcov")]
 
 head(df_selected)
 dim(df_selected)
 ```
 
-## Convert variables to factors
+## Convert all remaining variables to factors
 ```{r}
-# For sex
-df_selected$PSEX <- factor(df_selected$PSEX, levels = c(1, 2), labels = c("Male", "Female"))
+df_selected[] <- lapply(df_selected, as.factor)
 
-# For cohort
-df_selected$CW3_COHORT <- factor(df_selected$CW3_COHORT, levels = c(1, 2, 3, 4, 5), labels = c("C1", "C2", "C3", "C4", "C5"))
-
-# For memory
-df_selected$CW3_MEMORY <- factor(df_selected$CW3_MEMORY, levels = c(1, 2, 3, 4), labels = c("Better", "Usual", "Worse", "Much Worse"))
-
-# For GHQ (General Health Questionnaire)
-df_selected$GHQPRECOVID_pre <- factor(df_selected$GHQPRECOVID_pre, levels = c(1, 2, 3, 4, 5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
-
-# For FINANCIALMANB
-df_selected$FINANCIALMANB_pre <- factor(df_selected$FINANCIALMANB_pre, levels = c(1, 2, 3, 4, 5), labels = c("Comfortable", "Satisfactory", "Managing", "Difficult", "Very Difficult"))
-
-# For FINANCIALMAND
-df_selected$FINANCIALMAND_post <- factor(df_selected$FINANCIALMAND_post, levels = c(1, 2, 3, 4, 5), labels = c("Much Worse", "Worse", "Same", "Better", "Much Better"))
-
-# For smoking
-df_selected$SMOKING_pre <- factor(df_selected$SMOKING_pre, levels = c(1, 2, 3, 4), labels = c("Never", "Formerly", "Occasionally", "Daily"))
-
-# For vape
-df_selected$VAPE_pre <- factor(df_selected$VAPE_pre, levels = c(1, 2, 3, 4), labels = c("Never", "Formerly", "Occasionally", "Daily"))
-
-# For alcohol
-df_selected$ALDRSP_post <- factor(df_selected$ALDRSP_post, levels = c(1, 2, 3, 4, 5), labels = c("Very Frequently", "Frequently", "Weekly", "Infrequently", "Never"))
-
-# For mental health
-df_selected$MHNOW_post <- factor(df_selected$MHNOW_post, levels = c(1, 2, 3, 4, 5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
-
-# Function to convert all 0/1 columns into "No"/"Yes"
-convert_to_yes_no <- function(df) {
-  for (col in colnames(df)) {
-    # If the column contains only 0, 1 convert it to "Yes"/"No"
-    if (all(df[[col]] %in% c(0, 1, NA))) {
-      df[[col]] <- factor(df[[col]], levels = c(0, 1), labels = c("No", "Yes"))
-    }
-  }
-  return(df)
-}
-
-df_selected <- convert_to_yes_no(df_selected)
-
-# Function to convert all 1/2 columns into "Yes"/"No"
-convert_to_yes_no2 <- function(df) {
-  for (col in colnames(df)) {
-    # If the column contains only 1, 2, and NA, convert it to "Yes"/"No"
-    if (all(df[[col]] %in% c(1, 2, NA))) {
-      df[[col]] <- factor(df[[col]], levels = c(1, 2), labels = c("Yes", "No"))
-    }
-  }
-  return(df)
-}
-
-df_selected <- convert_to_yes_no2(df_selected)
-
-# Function to convert 1, 2, 3, 4, and NA into the combined categories
-convert_to_combined_categories <- function(df) {
-  # Loop through all columns and apply the conversion logic
-  for (col in colnames(df)) {
-    # Check if the column contains values 1, 2, 3, 4 (and potentially NA)
-    if (all(df[[col]] %in% c(1, 2, 3, 4, NA))) {
-      # Apply the conversion logic for values 1 to 4
-      df[[col]] <- factor(df[[col]], 
-                          levels = c(1, 2, 3, 4), 
-                          labels = c("Rarely", "Sometimes", "Often", "Almost Always"), exclude = NA)
-      
-      # Ensure NA values remain as NA
-      df[[col]][is.na(df[[col]])] <- NA
-    }
-  }
-  return(df)
-}
-
-df_selected <- convert_to_combined_categories(df_selected)
-
-# Function to convert 1, 2, 3, 4, 5 and NA into the combined categories
-convert_to_combined_categories2 <- function(df) {
-  # Loop through all columns and apply the conversion logic
-  for (col in colnames(df)) {
-    # Check if the column contains values 1, 2, 3, 4, 5 (and potentially NA)
-    if (all(df[[col]] %in% c(1, 2, 3, 4, 5, NA))) {
-      # Apply the conversion logic for values 1 to 4
-      df[[col]] <- factor(df[[col]], 
-                          levels = c(1, 2, 3, 4, 5), 
-                          labels = c("Never", "Rarely", "Occasionally", "Frequently", "Daily"), exclude = NA)
-      
-      # Ensure NA values remain as NA
-      df[[col]][is.na(df[[col]])] <- NA
-    }
-  }
-  return(df)
-}
-
-df_selected <- convert_to_combined_categories2(df_selected)
-
-head(df_selected)
+sapply(df_selected, class)
+lapply(df_selected, unique)
 ```
+
+## Compare AIC and BIC values for different number of classes
+```{r}
+# Build the formula once
+lca_formula <- as.formula(
+  paste("cbind(", paste(names(df_selected), collapse = ","), ") ~ 1")
+)
+
+# Create empty lists to store results
+lca_models <- list()
+aic_values <- numeric()
+bic_values <- numeric()
+
+# Loop over number of classes 1 to 10
+for (nclass in 1:6) {
+  cat("Running model with", nclass, "classes...\n")
+  
+  model <- poLCA(lca_formula, data = df_selected, nclass = nclass, verbose = FALSE, nrep = 10)  # nrep=10 for better stability
+  lca_models[[nclass]] <- model
+  aic_values[nclass] <- model$aic
+  bic_values[nclass] <- model$bic
+}
+
+# Combine AIC and BIC results
+results_df <- data.frame(
+  N_Classes = 1:6,
+  AIC = aic_values,
+  BIC = bic_values
+)
+
+print(results_df)
+```
+lowest AIC and BIC value for 6 clusters
 
 # LCA model for all individuals
 ```{r}
-lca_all <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, 
-                   data = df_selected, nclass = 4)
+lca_all <- poLCA(lca_formula, data = df_selected, nclass = 4, verbose = FALSE, nrep = 10)
 
 summary(lca_all)
+lca_all$probs
 ```
-
-## Compare AIC and BIC values fo different number of classes
-```{r}
-model_1_class <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = df_selected, nclass = 1)
-
-model_2_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = df_selected, nclass = 2)
-
-model_3_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = df_selected, nclass = 3)
-
-model_4_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = df_selected, nclass = 4)
-
-# Compare AIC and BIC values
-aic_values <- c(model_1_class$aic, model_2_classes$aic, model_3_classes$aic, model_4_classes$aic)
-bic_values <- c(model_1_class$bic, model_2_classes$bic, model_3_classes$bic, model_4_classes$bic)
-
-# Print the AIC and BIC values
-data.frame(N_Classes = 1:4, AIC = aic_values, BIC = bic_values)
-```
-lowest AIC and BIC value for 4 clusters
 
 ## Visualize class proportions for all individuals
 ```{r}
@@ -223,16 +146,15 @@ pie(class_proportions, labels = paste("Class", 1:length(class_proportions), ":",
 ```
 ## Check frequency of long covid across LCA classes
 ```{r}
-df_complete <- df_selected[complete.cases(df_selected), ]
-df_complete$LCA_class <- lca_all$predclass
+df_selected$LCA_class <- lca_all$predclass
 
-table(df_complete$LCA_class, df_complete$longcov)
-prop.table(table(df_complete$LCA_class, df_complete$longcov), 1)
+table(df_selected$LCA_class, df$longcov)
+prop.table(table(df_selected$LCA_class, df$longcov), 1)
 ```
 ## Bar plot of long covid distriubtion
 ```{r}
 # Create a summary table
-df_summary <- as.data.frame(prop.table(table(df_complete$LCA_class, df_complete$longcov), 1))
+df_summary <- as.data.frame(prop.table(table(df_selected$LCA_class, df$longcov), 1))
 colnames(df_summary) <- c("LCA_class", "long_covid", "proportion")
 
 # Plot
@@ -247,236 +169,5 @@ ggplot(df_summary, aes(x = LCA_class, y = proportion, fill = long_covid)) +
 
 ## Chi-square test
 ```{r}
-chisq.test(table(df_complete$LCA_class, df_complete$longcov))
+chisq.test(table(df_selected$LCA_class, df$longcov))
 ```
-
-# Analysis of individuals with long covid 
-
-## Filter data
-```{r}
-filtered_df <- subset(df, longcov == 1)
-
-dim(filtered_df)
-```
-
-## Check the number of null values
-```{r}
-colSums(is.na(filtered_df))
-```
-
-## Select variables
-```{r}
-selected_df <- filtered_df[, intersect(c(
-  "PSEX", "CW3_COHORT", "CW3_COVID_HOSPAD", "CW3_COVNEWILL", 
-  "CW3_FATGRID_1", "CW3_FATGRID_2", "CW3_FATGRID_3", "CW3_FATGRID_4", 
-  "CW3_FATGRID_5", "CW3_FATGRID_6", "CW3_FATGRID_7", "CW3_FATGRID_8", 
-  "CW3_FATGRID_9", "CW3_FATGRID_10", "CW3_MEMORY", "CW3_SKIN", "CW3_SHORTB", "CW3_PALP", "CW3_ACTIVITY", "COVIDSYMPT_1", "COVIDSYMPT_2", "COVIDSYMPT_3", "COVIDSYMPT_4", "COVIDSYMPT_5", "COVIDSYMPT_6", 
-  "COVIDSYMPT_7", "COVIDSYMPT_8", "COVIDSYMPT_18", 
-  "COVIDSYMPT_10", "COVIDSYMPT_11", "COVIDSYMPT_12", 
-  "COVIDSYMPT_16", "COVIDSYMPT_13", "COVIDSYMPT_14", 
-  "COVIDSYMPT_17", "COVIDSYMPT_19", "COVIDSYMPT_20", 
-  "COVIDSYMPT_23", "GHQPRECOVID_pre", "LLI_17_pre", "OUTDOORS_4_pre", "FINANCIALMANB_pre", "SMOKING_pre", "VAPE_pre", "ALDRPP_pre", "FINANCIALMAND_post", "ALDRSP_post", "MHNOW_post", "PMED"), colnames(filtered_df))]
-
-head(selected_df)
-dim(selected_df)
-```
-
-## Check column values
-```{r}
-# Check the unique values in each column
-unique_values <- sapply(selected_df, unique)
-print(unique_values)
-```
-
-## Convert variables to factors
-```{r}
-# For sex
-selected_df$PSEX <- factor(selected_df$PSEX, levels = c(1, 2), labels = c("Male", "Female"))
-
-# For cohort
-selected_df$CW3_COHORT <- factor(selected_df$CW3_COHORT, levels = c(1, 2, 3, 4, 5), labels = c("C1", "C2", "C3", "C4", "C5"))
-
-# For memory
-selected_df$CW3_MEMORY <- factor(selected_df$CW3_MEMORY, levels = c(1, 2, 3, 4), labels = c("Better", "Usual", "Worse", "Much Worse"))
-
-# For GHQ (General Health Questionnaire)
-selected_df$GHQPRECOVID_pre <- factor(selected_df$GHQPRECOVID_pre, levels = c(1, 2, 3, 4, 5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
-
-# For FINANCIALMANB
-selected_df$FINANCIALMANB_pre <- factor(selected_df$FINANCIALMANB_pre, levels = c(1, 2, 3, 4, 5), labels = c("Comfortable", "Satisfactory", "Managing", "Difficult", "Very Difficult"))
-
-# For FINANCIALMAND
-selected_df$FINANCIALMAND_post <- factor(selected_df$FINANCIALMAND_post, levels = c(1, 2, 3, 4, 5), labels = c("Much Worse", "Worse", "Same", "Better", "Much Better"))
-
-# For smoking
-selected_df$SMOKING_pre <- factor(selected_df$SMOKING_pre, levels = c(1, 2, 3, 4), labels = c("Never", "Formerly", "Occasionally", "Daily"))
-
-# For vape
-selected_df$VAPE_pre <- factor(selected_df$VAPE_pre, levels = c(1, 2, 3, 4), labels = c("Never", "Formerly", "Occasionally", "Daily"))
-
-# For alcohol
-selected_df$ALDRSP_post <- factor(selected_df$ALDRSP_post, levels = c(1, 2, 3, 4, 5), labels = c("Very Frequently", "Frequently", "Weekly", "Infrequently", "Never"))
-
-# For mental health
-selected_df$MHNOW_post <- factor(selected_df$MHNOW_post, levels = c(1, 2, 3, 4, 5), labels = c("Excellent", "Very Good", "Good", "Fair", "Poor"))
-
-# Function to convert all 0/1 columns into "No"/"Yes"
-convert_to_yes_no <- function(df) {
-  for (col in colnames(df)) {
-    # If the column contains only 0, 1 convert it to "Yes"/"No"
-    if (all(df[[col]] %in% c(0, 1, NA))) {
-      df[[col]] <- factor(df[[col]], levels = c(0, 1), labels = c("No", "Yes"))
-    }
-  }
-  return(df)
-}
-
-selected_df <- convert_to_yes_no(selected_df)
-
-# Function to convert all 1/2 columns into "Yes"/"No"
-convert_to_yes_no2 <- function(df) {
-  for (col in colnames(df)) {
-    # If the column contains only 1, 2, and NA, convert it to "Yes"/"No"
-    if (all(df[[col]] %in% c(1, 2, NA))) {
-      df[[col]] <- factor(df[[col]], levels = c(1, 2), labels = c("Yes", "No"))
-    }
-  }
-  return(df)
-}
-
-selected_df <- convert_to_yes_no2(selected_df)
-
-# Function to convert 1, 2, 3, 4, and NA into the combined categories
-convert_to_combined_categories <- function(df) {
-  # Loop through all columns and apply the conversion logic
-  for (col in colnames(df)) {
-    # Check if the column contains values 1, 2, 3, 4 (and potentially NA)
-    if (all(df[[col]] %in% c(1, 2, 3, 4, NA))) {
-      # Apply the conversion logic for values 1 to 4
-      df[[col]] <- factor(df[[col]], 
-                          levels = c(1, 2, 3, 4), 
-                          labels = c("Rarely", "Sometimes", "Often", "Almost Always"), exclude = NA)
-      
-      # Ensure NA values remain as NA
-      df[[col]][is.na(df[[col]])] <- NA
-    }
-  }
-  return(df)
-}
-
-selected_df <- convert_to_combined_categories(selected_df)
-
-# Function to convert 1, 2, 3, 4, 5 and NA into the combined categories
-convert_to_combined_categories2 <- function(df) {
-  # Loop through all columns and apply the conversion logic
-  for (col in colnames(df)) {
-    # Check if the column contains values 1, 2, 3, 4, 5 (and potentially NA)
-    if (all(df[[col]] %in% c(1, 2, 3, 4, 5, NA))) {
-      # Apply the conversion logic for values 1 to 4
-      df[[col]] <- factor(df[[col]], 
-                          levels = c(1, 2, 3, 4, 5), 
-                          labels = c("Never", "Rarely", "Occasionally", "Frequently", "Daily"), exclude = NA)
-      
-      # Ensure NA values remain as NA
-      df[[col]][is.na(df[[col]])] <- NA
-    }
-  }
-  return(df)
-}
-
-selected_df <- convert_to_combined_categories2(selected_df)
-
-head(selected_df)
-```
-
-## Check column values
-```{r}
-# Check the unique values in each column
-unique_values <- sapply(selected_df, unique)
-print(unique_values)
-```
-
-# LCA model for individuals with long covid
-```{r}
-lca_model <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, 
-                   data = selected_df, nclass = 3)
-
-summary(lca_model)
-```
-
-## Compare AIC and BIC values fo different number of classes
-```{r}
-model_1_class <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 1)
-
-model_2_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 2)
-
-model_3_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, 
-CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 3)
-
-model_4_classes <- poLCA(cbind(PSEX, CW3_COHORT, CW3_COVID_HOSPAD, CW3_COVNEWILL, CW3_FATGRID_1, CW3_FATGRID_2, CW3_FATGRID_3, CW3_FATGRID_4, 
-CW3_FATGRID_5, CW3_FATGRID_6, CW3_FATGRID_7, CW3_FATGRID_8, 
-CW3_FATGRID_9, CW3_FATGRID_10, CW3_MEMORY, CW3_SKIN, CW3_SHORTB, CW3_PALP, CW3_ACTIVITY, COVIDSYMPT_1, COVIDSYMPT_2, COVIDSYMPT_3, COVIDSYMPT_4, COVIDSYMPT_5, COVIDSYMPT_6, 
-COVIDSYMPT_7, COVIDSYMPT_8, COVIDSYMPT_18, 
-COVIDSYMPT_10, COVIDSYMPT_11, COVIDSYMPT_12, 
-COVIDSYMPT_16, COVIDSYMPT_13, COVIDSYMPT_14, 
-COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20, 
-COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, data = selected_df, nclass = 4)
-
-# Compare AIC and BIC values
-aic_values <- c(model_1_class$aic, model_2_classes$aic, model_3_classes$aic, model_4_classes$aic)
-bic_values <- c(model_1_class$bic, model_2_classes$bic, model_3_classes$bic, model_4_classes$bic)
-
-# Print the AIC and BIC values
-data.frame(N_Classes = 1:4, AIC = aic_values, BIC = bic_values)
-
-```
-Lowest AIC value for 4 classes and lowest BIC value for 3 classes. 
-
-## Visualize class proportions
-```{r}
-class_proportions <- lca_model$P
-pie(class_proportions, labels = paste("Class", 1:length(class_proportions), ":", round(class_proportions * 100, 1), "%"),
-    main = "Latent Class Proportions for Long Covid Individuals")
-```
-
-Based on the result from fitting 3 latent classes on people diagonised with long covid, all three classes have more female than male, and the majority of individuals in all three classes did not go to the hospital because of coronavirus. Class 3 has the highest proportion of individuals diagnosed with COVID-19, followed by Class 2, where approximately half of the individuals were diagnosed, and Class 1, with the fewest diagnosed cases. 
-
-Class 3 individuals are more likely to report feeling tired at the time of the survey, while Class 2 individuals experience occasional tiredness, and Class 1 individuals are less likely to report fatigue. Similarly, Class 3 respondents exhibit the worst memory compared to the other two classes.
-
-While the majority of individuals in all three classes did not experience skin problems, Class 3 experienced more shortness of breath, racing heart, and more restriction on daily activities. 
-
-In terms of specific covid symptoms, Class 3 individuals experience more frequent sore throat, chest tightness, shortness of breath, runny nose, body aches, fatigue, sneezing, and headaches. Class 2 individuals report more shortness of breath, body aches, fatigue, and headaches. In contrast, Class 3 individuals report fewer symptoms overall.
-
-Overall, Class 3 individuals are characterized by experiencing multiple symptoms, Class 2 by mild symptoms, and Class 1 by generally less severe symptoms. The class proportion indicates that most of the respondents are characterized with mild symptoms, followed by Class 3 respondents and Class 1 respondents.
-
