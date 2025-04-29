@@ -162,7 +162,7 @@ COVIDSYMPT_17, COVIDSYMPT_19, COVIDSYMPT_20,
 COVIDSYMPT_23, GHQPRECOVID_pre, LLI_17_pre, OUTDOORS_4_pre, FINANCIALMANB_pre, SMOKING_pre, VAPE_pre, ALDRPP_pre, FINANCIALMAND_post, ALDRSP_post, MHNOW_post, PMED) ~ 1, 
                    data = df_selected, nclass = 4)
 
-summary(lca_model)
+summary(lca_all)
 ```
 
 ## Compare AIC and BIC values fo different number of classes
