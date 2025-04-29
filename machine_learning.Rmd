@@ -8,6 +8,7 @@ library(openxlsx)
 library(randomForest)
 library(caret)
 library(ggplot2)
+library(broom)
 ```
 
 # Load data
@@ -193,3 +194,35 @@ ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
   ) +
   theme_minimal()
 ```
+# Output result
+
+## Export missing values as csv file
+```{r}
+missing_counts <- colSums(is.na(df))
+missing_df <- data.frame(
+  Variable = names(missing_counts),
+  Missing_Count = as.numeric(missing_counts)
+)
+
+print(missing_df)
+
+write.csv(missing_df, "missing_values_summary.csv", row.names = FALSE)
+```
+
+## Export logistic regression result as csv file
+```{r}
+tidy_output <- tidy(log_mod)
+print(tidy_output)
+
+# round to 3 decimal places
+tidy_output_rounded <- tidy_output
+tidy_output_rounded$estimate <- round(tidy_output$estimate, 3)
+tidy_output_rounded$std.error <- round(tidy_output$std.error, 3)
+tidy_output_rounded$statistic <- round(tidy_output$statistic, 3)
+tidy_output_rounded$p.value <- round(tidy_output$p.value, 3)
+
+# export to CSV
+write.csv(tidy_output_rounded, "logistic_regression_output.csv", row.names = FALSE)
+```
+
+
