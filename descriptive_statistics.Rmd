@@ -1,0 +1,98 @@
+---
+title: "Descriptive statistics"
+---
+
+# Load library
+```{r}
+library(openxlsx)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+
+# Load data
+```{r}
+df <- read.xlsx("final_merged_generalised_dataset.xlsx")
+head(df)
+dim(df)
+```
+
+# Visualize PSEX
+```{r}
+ggplot(df, aes(x = PSEX)) +
+  geom_bar(fill = "skyblue") +  
+  labs(title = "Bar Chart of PSEX",
+       x = "PSEX Categories",
+       y = "Count") +
+  theme_minimal() 
+```
+
+# Visualize GHQ
+```{r}
+df$GHQ <- factor(df$GHQ, levels = c(levels(factor(df$GHQ)), "Missing"))
+
+df$GHQ[is.na(df$GHQ)] <- "Missing"
+
+ggplot(df, aes(x = GHQ)) +
+  geom_bar(fill = "skyblue") +  
+  labs(title = "Bar Chart of GHQ",
+       x = "GHQ Categories",
+       y = "Count") +
+  theme_minimal() 
+```
+
+# Visualize CW3_COVID_HOSPAD
+```{r}
+ggplot(df, aes(x = CW3_COVID_HOSPAD)) +
+  geom_bar(fill = "skyblue") +  
+  labs(title = "Bar Chart of CW3_COVID_HOSPAD",
+       x = "CW3_COVID_HOSPAD Categories",
+       y = "Count") +
+  theme_minimal() 
+```
+
+# Visualize for pre pandemic conditions
+```{r}
+df$FINANCIALMANB_pre <- factor(df$FINANCIALMANB_pre, levels = c(levels(factor(df$FINANCIALMANB_pre)), "Missing"))
+
+df$FINANCIALMANB_pre[is.na(df$FINANCIALMANB_pre)] <- "Missing"
+
+ggplot(df, aes(x = FINANCIALMANB_pre)) +
+  geom_bar(fill = "lightblue") + 
+  labs(title = "Bar Chart of FINANCIALMANB_pre",
+       x = "FINANCIALMANB_pre Categories",
+       y = "Count") +
+  theme_minimal()
+```
+
+# Visualize for post pandemic financial conditions
+```{r}
+df$FINANCIALMAND_post <- factor(df$FINANCIALMAND_post, levels = c(levels(factor(df$FINANCIALMAND_post)), "Missing"))
+
+df$FINANCIALMAND_post[is.na(df$FINANCIALMAND_post)] <- "Missing"
+
+ggplot(df, aes(x = FINANCIALMAND_post)) +
+  geom_bar(fill = "lightblue") + 
+  labs(title = "Bar Chart of FINANCIALMAND_post",
+       x = "FINANCIALMAND_post Categories",
+       y = "Count") +
+  theme_minimal()
+```
+
+# Descriptive statistics for covid symptoms
+```{r}
+covid_sympt_vars <- df %>% select(contains("COVIDSYMPT"))
+
+covid_sympt_long <- covid_sympt_vars %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+
+ggplot(covid_sympt_long, aes(x = variable, fill = factor(value))) +
+  geom_bar(position = "dodge") +
+  labs(title = "COVIDSYMPT Variables: Counts of 0 and 1",
+       x = "COVID Symptoms",
+       y = "Count",
+       fill = "Value (0 or 1)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("0" = "lightblue", "1" = "lightcoral")) +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
