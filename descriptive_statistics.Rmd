@@ -19,10 +19,12 @@ dim(df)
 
 # Visualize PSEX
 ```{r}
+table(df$PSEX)
+
 ggplot(df, aes(x = PSEX)) +
   geom_bar(fill = "skyblue") +  
-  labs(title = "Bar Chart of PSEX",
-       x = "PSEX Categories",
+  labs(title = "Distribution of Participants Across PSEX Levels",
+       x = "PSEX Levels",
        y = "Count") +
   theme_minimal() 
 ```
@@ -35,8 +37,8 @@ df$GHQ[is.na(df$GHQ)] <- "Missing"
 
 ggplot(df, aes(x = GHQ)) +
   geom_bar(fill = "skyblue") +  
-  labs(title = "Bar Chart of GHQ",
-       x = "GHQ Categories",
+  labs(title = "Distribution of Participants Across GHQ Levels",
+       x = "GHQ Levels",
        y = "Count") +
   theme_minimal() 
 ```
@@ -45,8 +47,8 @@ ggplot(df, aes(x = GHQ)) +
 ```{r}
 ggplot(df, aes(x = CW3_COVID_HOSPAD)) +
   geom_bar(fill = "skyblue") +  
-  labs(title = "Bar Chart of CW3_COVID_HOSPAD",
-       x = "CW3_COVID_HOSPAD Categories",
+  labs(title = "Distribution of Participants Across CW3_COVID_HOSPAD Levels",
+       x = "CW3_COVID_HOSPAD Levels",
        y = "Count") +
   theme_minimal() 
 ```
@@ -58,9 +60,9 @@ df$FINANCIALMANB_pre <- factor(df$FINANCIALMANB_pre, levels = c(levels(factor(df
 df$FINANCIALMANB_pre[is.na(df$FINANCIALMANB_pre)] <- "Missing"
 
 ggplot(df, aes(x = FINANCIALMANB_pre)) +
-  geom_bar(fill = "lightblue") + 
-  labs(title = "Bar Chart of FINANCIALMANB_pre",
-       x = "FINANCIALMANB_pre Categories",
+  geom_bar(fill = "skyblue") + 
+  labs(title = "Distribution of Participants Across FINANCIALMANB_pre Levels",
+       x = "FINANCIALMANB_pre Levels",
        y = "Count") +
   theme_minimal()
 ```
@@ -72,9 +74,9 @@ df$FINANCIALMAND_post <- factor(df$FINANCIALMAND_post, levels = c(levels(factor(
 df$FINANCIALMAND_post[is.na(df$FINANCIALMAND_post)] <- "Missing"
 
 ggplot(df, aes(x = FINANCIALMAND_post)) +
-  geom_bar(fill = "lightblue") + 
-  labs(title = "Bar Chart of FINANCIALMAND_post",
-       x = "FINANCIALMAND_post Categories",
+  geom_bar(fill = "skyblue") + 
+  labs(title = "Distribution of Participants Across FINANCIALMAND_post Levels",
+       x = "FINANCIALMAND_post Levels",
        y = "Count") +
   theme_minimal()
 ```
@@ -88,11 +90,11 @@ covid_sympt_long <- covid_sympt_vars %>%
 
 ggplot(covid_sympt_long, aes(x = variable, fill = factor(value))) +
   geom_bar(position = "dodge") +
-  labs(title = "COVIDSYMPT Variables: Counts of 0 and 1",
+  labs(title = "Distribution of Participants Across COVIDSYMPT Variables",
        x = "COVID Symptoms",
        y = "Count",
        fill = "Value (0 or 1)") +
   theme_minimal() +
-  scale_fill_manual(values = c("0" = "lightblue", "1" = "lightcoral")) +  
+  scale_fill_manual(values = c("0" = "skyblue", "1" = "lightcoral")) +  
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
