@@ -1,5 +1,5 @@
 ---
-title: "Machine Learning Methods"
+title: "Logistic Regression Model"
 ---
 
 # Load library
@@ -13,8 +13,12 @@ library(broom)
 
 # Load data
 ```{r}
-df <- read.xlsx("final_merged_generalised_dataset2.xlsx")
+df <- read.xlsx("final_merged_generalised_dataset.xlsx")
 head(df)
+dim(df)
+
+# Check number of longcov poeple
+sum(df$longcov == 1)
 ```
 
 # Data Cleaning
@@ -92,6 +96,7 @@ df <- df[, !(names(df) %in% "CW3_SKIN")]
 df <- df[, !(names(df) %in% "CW3_SHORTB")]
 df <- df[, !(names(df) %in% "CW3_PALP")]
 df <- df[, !(names(df) %in% "CW3_ACTIVITY")]
+df <- df[, !(names(df) %in% "CW3_COVNEWILL")]
 
 colSums(is.na(df))
 ```
@@ -114,7 +119,7 @@ df$CW3_COVID_HOSPAD <- factor(df$CW3_COVID_HOSPAD)
 df$longcov <- factor(df$longcov)
 
 # convert NA to a missing level
-vars_to_convert <- c("CW3_COVNEWILL", "CW3_BEENVAC", "GHQ", "PMED", "CW3_ECONACTIVITYB2", "GHQPRECOVID_pre", "LLI_17_pre", "OUTDOORS_4_pre", "FINANCIALMANB_pre", "ECONACTIVITYB_pre", "SMOKING_pre", "VAPE_pre", "ALDRPP_pre", "FINANCIALMAND_post", "ECONACTIVITYD_post", "VAPESP_post", "ALDRSP_post", "SATN_post", "MHNOW_post")
+vars_to_convert <- c("CW3_BEENVAC", "GHQ", "PMED", "CW3_ECONACTIVITYB2", "GHQPRECOVID_pre", "LLI_17_pre", "OUTDOORS_4_pre", "FINANCIALMANB_pre", "ECONACTIVITYB_pre", "SMOKING_pre", "VAPE_pre", "ALDRPP_pre", "FINANCIALMAND_post", "ECONACTIVITYD_post", "VAPESP_post", "ALDRSP_post", "SATN_post", "MHNOW_post")
 
 for (var in vars_to_convert) {
   df[[var]] <- factor(df[[var]], exclude = NULL)
@@ -131,69 +136,20 @@ df_complete <- df[complete.cases(df), ]
 
 dim(df_complete)
 colSums(is.na(df_complete))
-```
 
-## Split data into training and test set
-```{r}
-set.seed(38036)
-train_idx <- sample(seq_len(nrow(df_complete)), size = 0.7 * nrow(df_complete))
-train_data <- df_complete[train_idx, ]
-test_data <- df_complete[-train_idx, ]
+# Check number of longcov poeple
+sum(df_complete$longcov == 1)
 ```
 
 # Logistic regression
 
 ## Model
 ```{r}
-log_mod <- glm(longcov ~ . , data = train_data, family = binomial)
+log_mod <- glm(longcov ~ . , data = df_complete, family = binomial)
 
 summary(log_mod)
 ```
 
-## Calculate train and test accuracy:
-```{r}
-# align factor variables for train and test data
-factor_vars <- names(train_data)[sapply(train_data, is.factor)]
-
-for (var in factor_vars) {
-  train_data[[var]] <- factor(as.character(train_data[[var]]))
-  test_data[[var]] <- factor(as.character(test_data[[var]]), levels = levels(train_data[[var]]))
-}
-
-# remove missing values in the test data
-test_data_clean <- test_data[complete.cases(test_data[,]), ]
-
-# calculate train and test probabilities
-train_probs <- predict(log_mod, type = "response")
-test_probs <- predict(log_mod, newdata = test_data_clean, type = "response")
-
-train_pred <- ifelse(train_probs > 0.5, 1, 0)
-test_pred <- ifelse(test_probs > 0.5, 1, 0)
-
-train_accuracy <- mean(train_pred == train_data$longcov)
-test_accuracy <- mean(test_pred == test_data_clean$longcov)
-
-cat("Logistic regression training accuracy:", round(train_accuracy, 3), "\n")
-cat("Logistic regression test accuracy:", round(test_accuracy, 3), "\n")
-```
-
-## Check confusion matrix
-```{r}
-cm <- table(Predicted = test_pred, Actual = test_data_clean$longcov)
-cm_df <- as.data.frame(cm)
-
-ggplot(cm_df, aes(x = Actual, y = Predicted, fill = Freq)) +
-  geom_tile(color = "white") +
-  geom_text(aes(label = Freq), vjust = 0.5, size = 5) +
-  scale_fill_gradient(low = "grey90", high = "steelblue") +
-  labs(
-    title = "Confusion Matrix for Logistic Regression",
-    x = "Actual",
-    y = "Predicted",
-    fill = "Count"
-  ) +
-  theme_minimal()
-```
 # Output result
 
 ## Export missing values as csv file

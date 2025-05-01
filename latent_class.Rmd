@@ -99,12 +99,11 @@ lapply(df_selected, unique)
 
 ## Compare AIC and BIC values for different number of classes
 ```{r}
-# Build the formula once
+# Build the formula for the list of predictors
 lca_formula <- as.formula(
   paste("cbind(", paste(names(df_selected), collapse = ","), ") ~ 1")
 )
 
-# Create empty lists to store results
 lca_models <- list()
 aic_values <- numeric()
 bic_values <- numeric()
@@ -119,7 +118,7 @@ for (nclass in 1:6) {
   bic_values[nclass] <- model$bic
 }
 
-# Combine AIC and BIC results
+# Combine AIC and BIC results in a dataframe
 results_df <- data.frame(
   N_Classes = 1:6,
   AIC = aic_values,
